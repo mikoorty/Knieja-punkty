@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-111718";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-111718";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-112307";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-112307";
 
-const BUILD = "20261113-111718";
+const BUILD = "20261113-112307";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -66,7 +66,58 @@ function renderKeep() {
 }
 const rkey = () => S.tab + "|" + (S.view?.kind || "") + "|" + (S.view?.id || "");
 S.loaded = {};
-onSnapshot(doc(db, "config", "main"), s => { S.cfg = { ...DEFAULT_CONFIG, ...(s.data() || {}) }; S.loaded.cfg = true; pickQuarter(); refresh(); });
+function sanitizeConfig(cfg) {
+  if (!cfg) return DEFAULT_CONFIG;
+  const out = { ...DEFAULT_CONFIG, ...cfg };
+  const extractLeaf = val => {
+    if (typeof val === "string" || typeof val === "number") return val;
+    if (!val || typeof val !== "object") return "";
+    if (typeof val.stringValue === "string") return val.stringValue;
+    if (val.integerValue !== undefined) return parseInt(val.integerValue, 10);
+    for (const v of Object.values(val)) {
+      const r = extractLeaf(v);
+      if (r !== "") return r;
+    }
+    return "";
+  };
+  const findQuarterObj = node => {
+    if (!node || typeof node !== "object") return null;
+    if (node.nazwa !== undefined && node.start !== undefined && node.end !== undefined) return node;
+    for (const v of Object.values(node)) {
+      const res = findQuarterObj(v);
+      if (res) return res;
+    }
+    return null;
+  };
+
+  if (Array.isArray(out.kwartaly)) {
+    out.kwartaly = out.kwartaly.map(q => {
+      const obj = findQuarterObj(q) || {};
+      const nazwa = String(extractLeaf(obj.nazwa) || q.nazwa || "").trim();
+      const start = String(extractLeaf(obj.start) || q.start || "").trim();
+      const end = String(extractLeaf(obj.end) || q.end || "").trim();
+      return { nazwa: nazwa || "Kwartał", start: start || today(), end: end || today() };
+    });
+  }
+  if (out.liczebnosc && typeof out.liczebnosc === "object") {
+    const cl = {};
+    for (const [z, val] of Object.entries(out.liczebnosc)) {
+      cl[z] = typeof val === "number" ? val : (parseInt(extractLeaf(val), 10) || DEFAULT_CONFIG.liczebnosc[z] || 6);
+    }
+    out.liczebnosc = cl;
+  }
+  return out;
+}
+
+onSnapshot(doc(db, "config", "main"), s => {
+  S.cfg = sanitizeConfig(s.data());
+  S.loaded.cfg = true;
+  pickQuarter();
+  if (isKadra() && JSON.stringify(s.data() || "").includes("mapValue")) {
+    setDoc(doc(db, "config", "main"), S.cfg).catch(() => {});
+  }
+  refresh();
+});
 const live = (name, key, map = x => x) => onSnapshot(collection(db, name), s => {
   S[key] = s.docs.map(d => map({ id: d.id, ...d.data() })).sort((a, b) => (b.data || "").localeCompare(a.data || "")); S.loaded[key] = true; refresh();
 }, e => { console.warn(name, e); S.denied = { ...S.denied, [key]: e.code || "błąd" }; refresh(); });
@@ -528,7 +579,7 @@ async function syncOldHistory(statusCb = () => {}) {
     if (resCfg.ok) {
       const jsonCfg = await resCfg.json();
       if (jsonCfg.fields) {
-        await setDoc(doc(db, "config", "main"), decodeDocData(jsonCfg));
+        await setDoc(doc(db, "config", "main"), sanitizeConfig(decodeDocData(jsonCfg)));
       }
     }
   } catch (e) {
