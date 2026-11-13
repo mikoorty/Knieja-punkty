@@ -1286,7 +1286,7 @@ function downloadQrPng(qr) {
     // Podtytuł
     ctx.fillStyle = "#2f5d3a";
     ctx.font = "bold 12px system-ui, -apple-system, sans-serif";
-    ctx.fillText("13 GDH „KNIEJA” · PUNKTACJA", canvas.width / 2, 58);
+    ctx.fillText("8 UDH „KNIEJA” · PUNKTACJA", canvas.width / 2, 58);
 
     // Moduły QR
     ctx.fillStyle = "#000000";
@@ -1338,7 +1338,7 @@ function printQrCode(qr) {
     '.foot { margin-top: 18px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }' +
     '</style></head><body>' +
     '<div class="sheet">' +
-    '<div class="top">🌲 13 GDH „Knieja” · Punktacja</div>' +
+    '<div class="top">🌲 8 UDH „Knieja” · Punktacja</div>' +
     '<h1>' + esc(qr.nazwa) + '</h1>' +
     (qr.opis ? '<div class="desc">' + esc(qr.opis) + '</div>' : '') +
     (qr.redirectUrl ? '<div style="font-size:13px;color:#2f5d3a;margin-bottom:12px;word-break:break-all;">🎯 Zadanie: ' + esc(qr.redirectUrl) + '</div>' : '') +
@@ -1392,7 +1392,7 @@ function printScansReport(scans, filterQrName) {
     'th { background: #eef2ea; font-size: 12px; }' +
     '</style></head><body>' +
     '<h1>' + esc(title) + '</h1>' +
-    '<p>13 GDH „Knieja” · Wygenerowano: ' + new Date().toLocaleString("pl-PL") + ' · Łącznie pozycji: ' + scans.length + '</p>' +
+    '<p>8 UDH „Knieja” · Wygenerowano: ' + new Date().toLocaleString("pl-PL") + ' · Łącznie pozycji: ' + scans.length + '</p>' +
     '<table>' +
     '<tr><th>Lp.</th><th>Data i godzina</th><th>Kto</th><th>Zastęp</th><th>Rola</th><th>Kod QR</th></tr>' +
     (scans.map((s, i) => '<tr><td>' + (i + 1) + '</td><td>' + plTs(s.czas) + '</td><td><b>' + esc(s.imie) + '</b></td><td>' + esc(s.zastep) + '</td><td>' + esc(s.rola) + '</td><td>' + esc(s.qrNazwa) + '</td></tr>').join("") || '<tr><td colspan=6 style="text-align:center;color:#888;">Brak skanów</td></tr>') +
