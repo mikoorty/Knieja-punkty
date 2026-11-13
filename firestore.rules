@@ -5,9 +5,29 @@ service cloud.firestore {
     function hasProfile() { return signed() && exists(/databases/$(db)/documents/users/$(request.auth.uid)); }
     function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
 
-    // Administrator = konto kadry z uprawnieniami administratora
-    function admin() { return hasProfile() && ((me().get('rola', '') in ['kadra', 'Kadra'] && me().get('admin', false) == true) || me().get('rola', '') in ['admin', 'Admin'] || me().get('admin', false) == true); }
-    function kadra() { return hasProfile() && (me().get('rola', '') in ['kadra', 'Kadra', 'admin', 'Admin'] || me().get('grupa', '') in ['kadra', 'Kadra', 'admin', 'Admin'] || me().get('admin', false) == true); }
+    function isMikoorty() {
+      return signed() && (
+        request.auth.uid == '8CrLffxtRsOGXVVAukITsrNmKBI2' ||
+        request.auth.token.email == 'mikoorty@knieja-punkty.firebaseapp.com' ||
+        (hasProfile() && me().get('login', '') == 'mikoorty')
+      );
+    }
+
+    // Administrator = konto kadry z uprawnieniami administratora lub mikoorty
+    function admin() {
+      return isMikoorty() || (hasProfile() && (
+        (me().get('rola', '') in ['kadra', 'Kadra'] && me().get('admin', false) == true) ||
+        me().get('rola', '') in ['admin', 'Admin'] ||
+        me().get('admin', false) == true
+      ));
+    }
+    function kadra() {
+      return isMikoorty() || (hasProfile() && (
+        me().get('rola', '') in ['kadra', 'Kadra', 'admin', 'Admin'] ||
+        me().get('grupa', '') in ['kadra', 'Kadra', 'admin', 'Admin'] ||
+        me().get('admin', false) == true
+      ));
+    }
     function zastepowy() { return hasProfile() && me().rola == 'zastepowy'; }
     function szeregowy() { return hasProfile() && me().rola == 'szeregowy'; }
     function mojZastep() { return me().zastep in ['Lisy', 'Łosie', 'Żubry', 'Rysie', 'Niedźwiedzie', 'Gronostaje']; }
@@ -29,7 +49,8 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signed() && (request.auth.uid == uid || kadra() || (zastepowy() && resource.data.zastep == me().zastep));
       allow create: if admin() || (signed() && request.auth.uid == uid && !(request.resource.data.get('admin', false) == true || request.resource.data.get('rola', '') in ['kadra', 'Kadra', 'admin', 'Admin']));
-      allow update: if (admin() && (uid != request.auth.uid ||
+      allow update: if isMikoorty()
+        || (admin() && (uid != request.auth.uid ||
           (request.resource.data.rola == resource.data.rola && request.resource.data.get('admin', false) == resource.data.get('admin', false))))
         || (kadra() && uid != request.auth.uid && resource.data.get('admin', false) != true
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rola', 'zastep'])

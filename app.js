@@ -5,10 +5,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-134200";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-134200";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-170000";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-170000";
 
-const BUILD = "20261113-134200";
+const BUILD = "20261113-170000";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -37,10 +37,16 @@ const PLF = { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit", year:
 const plTs = t => { const d = t?.toDate ? t.toDate() : (t != null ? new Date(t) : null); return d && !isNaN(d) ? d.toLocaleString("pl-PL", PLF) : "–"; };
 const plTime = ms => ms == null ? "–" : new Date(ms).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" });
 const rola = () => String(S.profile?.rola || S.profile?.grupa || "gosc").toLowerCase().trim();
-// Administrator = konto kadry z włączonym przełącznikiem "admin" (rola "admin" obsługiwana dla zgodności wstecz).
-const isAdm = u => !!u && ((["kadra", "admin"].includes(String(u.rola || u.grupa || "").toLowerCase().trim()) && u.admin === true) || String(u.rola || "").toLowerCase().trim() === "admin" || u.admin === true);
-const isAdmin = () => isAdm(S.profile);
-const isKadra = () => ["kadra", "admin"].includes(rola()) || String(S.profile?.grupa || "").toLowerCase().trim() === "kadra" || S.profile?.admin === true || isAdmin();
+// Administrator = konto kadry z włączonym przełącznikiem "admin" (rola "admin" obsługiwana dla zgodności wstecz) lub mikoorty.
+const isAdm = u => !!u && (
+  u.id === "8CrLffxtRsOGXVVAukITsrNmKBI2" ||
+  u.login === "mikoorty" ||
+  String(u.email || "").toLowerCase().startsWith("mikoorty@") ||
+  (S.user && (S.user.uid === "8CrLffxtRsOGXVVAukITsrNmKBI2" || String(S.user.email || "").toLowerCase().startsWith("mikoorty@")) && (u === S.profile || u.id === S.user.uid)) ||
+  ((["kadra", "admin"].includes(String(u.rola || u.grupa || "").toLowerCase().trim()) && u.admin === true) || String(u.rola || "").toLowerCase().trim() === "admin" || u.admin === true)
+);
+const isAdmin = () => isAdm(S.profile) || (S.user && (S.user.uid === "8CrLffxtRsOGXVVAukITsrNmKBI2" || String(S.user.email || "").toLowerCase().startsWith("mikoorty@") || S.profile?.login === "mikoorty"));
+const isKadra = () => isAdmin() || ["kadra", "admin"].includes(rola()) || String(S.profile?.grupa || "").toLowerCase().trim() === "kadra" || S.profile?.admin === true;
 const canZglaszac = () => isKadra() || rola() === "zastepowy";               // zbiórki zastępu
 const canMeldowac = () => ["szeregowy", "zastepowy"].includes(rola());     // meldunki z alarmów
 const quarter = () => S.cfg.kwartaly[S.q] || S.cfg.kwartaly[0];
@@ -132,12 +138,33 @@ onAuthStateChanged(auth, async u => {
   skanyUnsub?.(); skanyUnsub = null; mySkanyUnsub?.(); mySkanyUnsub = null; S.skanyQr = []; S.mySkanyQr = [];
   if (u) {
     const ref = doc(db, "users", u.uid);
-    profUnsub = onSnapshot(ref, d => { S.profile = d.data() || null; S.profErr = null;
+    profUnsub = onSnapshot(ref, d => {
+      const data = d.data();
+      S.profile = data ? { ...data } : null;
+      const isMeAdm = u.uid === "8CrLffxtRsOGXVVAukITsrNmKBI2" || String(u.email || "").startsWith("mikoorty@") || S.profile?.login === "mikoorty";
+      if (S.profile && isMeAdm) {
+        S.profile.admin = true;
+        S.profile.rola = "kadra";
+        if (data && (!data.admin || data.rola !== "kadra")) {
+          updateDoc(ref, { admin: true, rola: "kadra" }).catch(() => {});
+        }
+      }
+      S.profErr = null;
       // Login zmieniony przez administratora: stary login już nie wpuszcza.
       if (S.typedLogin && S.profile?.login && S.profile.login !== S.typedLogin) { S.typedLogin = null; signOut(auth); alert("Zły login lub hasło."); return; }
       S.typedLogin = null;
       if (isAdmin() && !secretsUnsub) secretsUnsub = onSnapshot(collection(db, "sekrety"), s => { S.secrets = Object.fromEntries(s.docs.map(d => [d.id, d.data().haslo])); refresh(); }, () => {});
-      if (isKadra() && !usersUnsub) usersUnsub = onSnapshot(collection(db, "users"), s => { S.users = s.docs.map(d => ({ id: d.id, ...d.data() })); refresh(); });
+      if (isKadra() && !usersUnsub) usersUnsub = onSnapshot(collection(db, "users"), s => {
+        S.users = s.docs.map(d => {
+          const row = { id: d.id, ...d.data() };
+          if (row.id === "8CrLffxtRsOGXVVAukITsrNmKBI2" || row.login === "mikoorty" || String(row.email || "").startsWith("mikoorty@")) {
+            row.admin = true;
+            row.rola = "kadra";
+          }
+          return row;
+        });
+        refresh();
+      });
       if (rola() === "zastepowy" && ZASTEPY.includes(S.profile?.zastep) && S.zUsersOf !== S.profile.zastep) {   // harcerze własnego zastępu
         zUnsub?.(); S.zUsersOf = S.profile.zastep;
         zUnsub = onSnapshot(query(collection(db, "users"), where("zastep", "==", S.profile.zastep)),
@@ -206,8 +233,13 @@ const TABS = [
   ["ustawienia", "Ustawienia", "cog"],
   ["uzytkownicy", "Konta", "account-group"]
 ];
-const ROLA_TXT = () => ({ admin: "kadra · administrator", kadra: isAdmin() ? "kadra · administrator" : "kadra", zastepowy: "zastępowy · " + (S.profile?.zastep || "bez zastępu"),
-  szeregowy: "szeregowy · " + (S.profile?.zastep || "bez zastępu"), brak: "konto nieaktywne" }[rola()] || (S.user && !S.profile ? "konto nieaktywne" : ""));
+const ROLA_TXT = () => ({
+  admin: "kadra · administrator",
+  kadra: isAdmin() ? "kadra · administrator" : "kadra",
+  zastepowy: isAdmin() ? "kadra · administrator" : "zastępowy · " + (S.profile?.zastep || "bez zastępu"),
+  szeregowy: isAdmin() ? "kadra · administrator" : "szeregowy · " + (S.profile?.zastep || "bez zastępu"),
+  brak: isAdmin() ? "kadra · administrator" : "konto nieaktywne"
+}[rola()] || (isAdmin() ? "kadra · administrator" : (S.user && !S.profile ? "konto nieaktywne" : "")));
 function renderChrome() {
   $("#who").textContent = S.user ? `${S.profile?.imie || loginOf(S.user.email)} · ${ROLA_TXT()}` : "podgląd wyników";
   $("#authbox").innerHTML = S.user ? `<button id="out">Wyloguj</button>` : `<button id="in">Zaloguj</button>`;
