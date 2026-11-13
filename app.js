@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-124335";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-124335";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-130524";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-130524";
 
-const BUILD = "20261113-124335";
+const BUILD = "20261113-130524";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -1341,6 +1341,7 @@ function printQrCode(qr) {
     '<div class="top">🌲 13 GDH „Knieja” · Punktacja</div>' +
     '<h1>' + esc(qr.nazwa) + '</h1>' +
     (qr.opis ? '<div class="desc">' + esc(qr.opis) + '</div>' : '') +
+    (qr.redirectUrl ? '<div style="font-size:13px;color:#2f5d3a;margin-bottom:12px;word-break:break-all;">🎯 Zadanie: ' + esc(qr.redirectUrl) + '</div>' : '') +
     '<div class="qr-svg">' + svg + '</div>' +
     '<div class="instruct">' +
     '📷 Zeskanuj ten kod w aplikacji <b>Punktacja zastępów</b>' +
@@ -1350,12 +1351,31 @@ function printQrCode(qr) {
     'Wygenerowano: ' + plTs(qr.utworzono) + ' · Kadra: ' + esc(qr.autorImie || "kadra") +
     '</div>' +
     '</div>' +
+    '<script>setTimeout(function(){ window.focus(); window.print(); }, 250);<\/script>' +
     '</body></html>';
 
-  if (inApp()) return window.KniejaApp.printHtml(html, "Kod QR - " + qr.nazwa);
+  if (inApp() && window.KniejaApp?.printHtml) {
+    return window.KniejaApp.printHtml(html, "Kod QR - " + qr.nazwa);
+  }
   const w = window.open("", "_blank");
-  if (!w) return alert("Przeglądarka zablokowała nowe okno — zezwól na wyskakujące okna.");
-  w.document.write(html.replace("</body>", "<script>window.onload=()=>setTimeout(()=>print(),300)</script></body>"));
+  if (!w) {
+    const m = $("#modal");
+    if (m) {
+      m.hidden = false;
+      m.innerHTML = '<div class="box" style="max-width:500px;text-align:center;">' +
+        '<div style="max-height:70vh;overflow-y:auto;padding:10px;">' + html.replace(/<script>[\s\S]*?<\/script>/, '') + '</div>' +
+        '<div class="row" style="justify-content:center;margin-top:10px;">' +
+        '<button class="pri" id="btn_modal_print">🖨 Drukuj teraz</button>' +
+        '<button id="btn_modal_close">Zamknij</button>' +
+        '</div></div>';
+      $("#btn_modal_print").onclick = () => window.print();
+      $("#btn_modal_close").onclick = () => { m.hidden = true; m.innerHTML = ""; };
+      return;
+    }
+    return alert("Przeglądarka zablokowała nowe okno — zezwól na wyskakujące okna.");
+  }
+  w.document.open();
+  w.document.write(html);
   w.document.close();
 }
 
@@ -1697,12 +1717,12 @@ function vQr() {
             '</div>' +
             '<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:6px;">' +
               '<div class="row">' +
-                '<button class="pri" data-print-qr="' + qr.id + '">🖨 Drukuj</button>' +
-                '<button data-dl-qr="' + qr.id + '">💾 Pobierz PNG</button>' +
-                '<button data-copy-qr="' + qr.id + '">📋 Link</button>' +
+                '<button class="pri" data-print-qr="' + esc(qr.id) + '">🖨 Drukuj</button>' +
+                '<button data-dl-qr="' + esc(qr.id) + '">💾 Pobierz PNG</button>' +
+                '<button data-copy-qr="' + esc(qr.id) + '">📋 Link</button>' +
                 (qr.redirectUrl ? '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="button" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;font-size:13px;">🔗 Zadanie</a>' : '') +
-                '<button data-toggle-qr="' + qr.id + '">' + (isExp ? "▲ Ukryj skany" : "▼ Skany (" + qrScans.length + ")") + '</button>' +
-                '<button class="del" data-del-qr="' + qr.id + '">Usuń</button>' +
+                '<button data-toggle-qr="' + esc(qr.id) + '">' + (isExp ? "▲ Ukryj skany" : "▼ Skany (" + qrScans.length + ")") + '</button>' +
+                '<button class="del" data-del-qr="' + esc(qr.id) + '">Usuń</button>' +
               '</div>' +
               (isExp ? '<div style="background:var(--acc2);border-radius:8px;padding:8px;margin-top:6px;max-height:220px;overflow-y:auto;font-size:12px;">' +
                 '<b>Historia skanów dla „' + esc(qr.nazwa) + '”:</b>' +
@@ -1846,51 +1866,6 @@ binders.qr = () => {
     render();
   });
 
-  $$("[data-print-qr]").forEach(b => b.onclick = () => {
-    const qr = S.kodyQr?.find(q => q.id === b.dataset.printQr);
-    if (qr) printQrCode(qr);
-  });
-
-  $$("[data-dl-qr]").forEach(b => b.onclick = () => {
-    const qr = S.kodyQr?.find(q => q.id === b.dataset.dlQr);
-    if (qr) downloadQrPng(qr);
-  });
-
-  $$("[data-copy-qr]").forEach(b => b.onclick = async () => {
-    const qr = S.kodyQr?.find(q => q.id === b.dataset.copyQr);
-    if (qr) {
-      const url = getQrPayload(qr.id);
-      await copyText(url, b);
-    }
-  });
-
-  $$("[data-toggle-qr]").forEach(b => b.onclick = () => {
-    const id = b.dataset.toggleQr;
-    S.qrExpanded = S.qrExpanded || {};
-    S.qrExpanded[id] = !S.qrExpanded[id];
-    render();
-  });
-
-  $$("[data-del-qr]").forEach(b => b.onclick = async () => {
-    const qr = S.kodyQr?.find(q => q.id === b.dataset.delQr);
-    if (!qr) return;
-    if (!confirm('Czy na pewno chcesz usunąć kod QR „' + qr.nazwa + '”?')) return;
-    try {
-      await deleteDoc(doc(db, "kodyQr", qr.id));
-    } catch (e) {
-      alert("Błąd podczas usuwania: " + (e.message || e));
-    }
-  });
-
-  $$("[data-del-scan]").forEach(b => b.onclick = async () => {
-    if (!confirm("Czy na pewno chcesz usunąć ten wpis skanu?")) return;
-    try {
-      await deleteDoc(doc(db, "skanyQr", b.dataset.delScan));
-    } catch (e) {
-      alert("Błąd podczas usuwania: " + (e.message || e));
-    }
-  });
-
   $("#filter_qr_code") && ($("#filter_qr_code").onchange = (e) => {
     S.qrFilterCode = e.target.value;
     render();
@@ -1982,6 +1957,69 @@ binders.qr = () => {
     e.target.value = "";
   });
 };
+
+// Globalna delegacja zdarzeń dla kart kodów QR (gwarantuje natychmiastowe i niezawodne działanie wszystkich przycisków akcji)
+document.addEventListener("click", async (e) => {
+  const printBtn = e.target.closest("[data-print-qr]");
+  if (printBtn) {
+    e.preventDefault();
+    const qrId = printBtn.dataset.printQr;
+    const qr = S.kodyQr?.find(q => q.id === qrId);
+    if (qr) printQrCode(qr);
+    return;
+  }
+  const dlBtn = e.target.closest("[data-dl-qr]");
+  if (dlBtn) {
+    e.preventDefault();
+    const qrId = dlBtn.dataset.dlQr;
+    const qr = S.kodyQr?.find(q => q.id === qrId);
+    if (qr) downloadQrPng(qr);
+    return;
+  }
+  const copyBtn = e.target.closest("[data-copy-qr]");
+  if (copyBtn) {
+    e.preventDefault();
+    const qrId = copyBtn.dataset.copyQr;
+    const url = getQrPayload(qrId);
+    await copyText(url, copyBtn);
+    return;
+  }
+  const toggleBtn = e.target.closest("[data-toggle-qr]");
+  if (toggleBtn) {
+    e.preventDefault();
+    const id = toggleBtn.dataset.toggleQr;
+    S.qrExpanded = S.qrExpanded || {};
+    S.qrExpanded[id] = !S.qrExpanded[id];
+    render();
+    return;
+  }
+  const delBtn = e.target.closest("[data-del-qr]");
+  if (delBtn) {
+    e.preventDefault();
+    const qrId = delBtn.dataset.delQr;
+    const qr = S.kodyQr?.find(q => q.id === qrId);
+    const nazwa = qr ? qr.nazwa : "ten kod QR";
+    if (!confirm('Czy na pewno chcesz usunąć kod QR „' + nazwa + '”?')) return;
+    try {
+      await deleteDoc(doc(db, "kodyQr", qrId));
+    } catch (err) {
+      alert("Błąd podczas usuwania: " + (err.message || err));
+    }
+    return;
+  }
+  const delScanBtn = e.target.closest("[data-del-scan]");
+  if (delScanBtn) {
+    e.preventDefault();
+    const scanId = delScanBtn.dataset.delScan;
+    if (!confirm("Czy na pewno chcesz usunąć ten wpis skanu?")) return;
+    try {
+      await deleteDoc(doc(db, "skanyQr", scanId));
+    } catch (err) {
+      alert("Błąd podczas usuwania: " + (err.message || err));
+    }
+    return;
+  }
+});
 
 
 // ---------- JA (każdy zalogowany)
@@ -2298,11 +2336,45 @@ const APK_URL = "https://github.com/mikoorty/Knieja-punkty/releases/latest/downl
 const linkRow = (id, url) => `<div class="row"><input id="${id}" value="${url}" readonly style="flex:1;min-width:0" onfocus="this.select()">
   <button class="pri" data-copy="${id}">📋 Kopiuj</button>${navigator.share ? `<button data-share="${id}">📤 Udostępnij</button>` : ""}</div>`;
 async function copyText(text, btn) {
+  if (inApp() && window.KniejaApp?.copyToClipboard) {
+    window.KniejaApp.copyToClipboard(text);
+    if (btn) {
+      const old = btn.textContent;
+      btn.textContent = "✔ Skopiowano";
+      setTimeout(() => btn.textContent = old, 2000);
+    }
+    return;
+  }
   let ok = false;
-  try { await navigator.clipboard.writeText(text); ok = true; } catch (e) {
-    const t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t);
-    t.select(); try { ok = document.execCommand("copy"); } catch (e2) {} t.remove(); }
-  const old = btn.textContent; btn.textContent = ok ? "✔ Skopiowano" : "Zaznacz i skopiuj ręcznie"; setTimeout(() => btn.textContent = old, 2000);
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch (e) {}
+  if (!ok) {
+    try {
+      const t = document.createElement("textarea");
+      t.value = text;
+      t.style.position = "fixed";
+      t.style.opacity = "0";
+      t.style.left = "-9999px";
+      document.body.appendChild(t);
+      t.focus();
+      t.select();
+      ok = document.execCommand("copy");
+      t.remove();
+    } catch (e2) {}
+  }
+  if (!ok) {
+    window.prompt("Skopiuj link (Ctrl+C / przytrzymaj):", text);
+    return;
+  }
+  if (btn) {
+    const old = btn.textContent;
+    btn.textContent = "✔ Skopiowano";
+    setTimeout(() => btn.textContent = old, 2000);
+  }
 }
 function vUstawienia() {
   const c = S.cfg, list = (k, n) => `<input data-c="${k}" value="${(c[k] || []).join(", ")}" style="width:100%" title="${n}">`;

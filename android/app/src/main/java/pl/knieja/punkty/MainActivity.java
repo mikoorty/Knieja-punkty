@@ -2,6 +2,8 @@ package pl.knieja.punkty;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -16,8 +18,11 @@ import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
+import android.util.Log;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -25,6 +30,7 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -143,6 +149,44 @@ public class MainActivity extends Activity {
                     fileCallback = null;
                     toast("Nie można otworzyć aparatu ani galerii");
                 }
+                return true;
+            }
+
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Knieja")
+                        .setMessage(message)
+                        .setPositiveButton("OK", (d, w) -> result.confirm())
+                        .setOnCancelListener(d -> result.confirm())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Knieja")
+                        .setMessage(message)
+                        .setPositiveButton("OK", (d, w) -> result.confirm())
+                        .setNegativeButton("Anuluj", (d, w) -> result.cancel())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
+                return true;
+            }
+
+            @Override
+            public boolean onJsPrompt(WebView view, String url, String message, String defaultValue, JsPromptResult result) {
+                final EditText input = new EditText(MainActivity.this);
+                input.setText(defaultValue);
+                new AlertDialog.Builder(MainActivity.this)
+                        .setTitle("Knieja")
+                        .setMessage(message)
+                        .setView(input)
+                        .setPositiveButton("OK", (d, w) -> result.confirm(input.getText().toString()))
+                        .setNegativeButton("Anuluj", (d, w) -> result.cancel())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
                 return true;
             }
         });
@@ -472,14 +516,27 @@ public class MainActivity extends Activity {
         public void saveFile(String base64, String name, String mime) {
             try {
                 byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+                boolean saved = false;
                 if (Build.VERSION.SDK_INT >= 29) {
-                    ContentValues cv = new ContentValues();
-                    cv.put(MediaStore.Downloads.DISPLAY_NAME, name);
-                    cv.put(MediaStore.Downloads.MIME_TYPE, mime);
-                    Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-                    try (OutputStream os = getContentResolver().openOutputStream(uri)) { os.write(bytes); }
-                    toast("Zapisano w folderze Pobrane: " + name);
-                } else {
+                    try {
+                        ContentValues cv = new ContentValues();
+                        cv.put(MediaStore.Downloads.DISPLAY_NAME, name);
+                        cv.put(MediaStore.Downloads.MIME_TYPE, mime);
+                        Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                        if (uri != null) {
+                            try (OutputStream os = getContentResolver().openOutputStream(uri)) {
+                                if (os != null) {
+                                    os.write(bytes);
+                                    saved = true;
+                                    toast("Zapisano w folderze Pobrane: " + name);
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.w("KniejaApp", "MediaStore insert failed", e);
+                    }
+                }
+                if (!saved) {
                     File f = new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), name);
                     try (FileOutputStream os = new FileOutputStream(f)) { os.write(bytes); }
                     Uri u = FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".files", f);
@@ -490,6 +547,21 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 toast("Nie udało się zapisać pliku");
             }
+        }
+
+        @JavascriptInterface
+        public void copyToClipboard(String text) {
+            runOnUiThread(() -> {
+                try {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm != null) {
+                        cm.setPrimaryClip(ClipData.newPlainText("Knieja", text));
+                        toast("Skopiowano do schowka");
+                    }
+                } catch (Exception e) {
+                    Log.w("KniejaApp", "copyToClipboard error", e);
+                }
+            });
         }
 
         @JavascriptInterface
@@ -531,16 +603,29 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void printHtml(String html, String title) {
             runOnUiThread(() -> {
-                WebView pw = new WebView(MainActivity.this);
-                pw.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public void onPageFinished(WebView v, String url) {
-                        PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
-                        pm.print(title, v.createPrintDocumentAdapter(title), new PrintAttributes.Builder().build());
-                    }
-                });
-                pw.loadDataWithBaseURL(START, html, "text/html", "utf-8", null);
-                printView = pw;     // trzymamy referencję, żeby nie zniknął w trakcie drukowania
+                try {
+                    WebView pw = new WebView(MainActivity.this);
+                    pw.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public void onPageFinished(WebView v, String url) {
+                            try {
+                                PrintManager pm = (PrintManager) getSystemService(Context.PRINT_SERVICE);
+                                if (pm != null) {
+                                    pm.print(title, v.createPrintDocumentAdapter(title), new PrintAttributes.Builder().build());
+                                } else {
+                                    toast("Usługa drukowania jest niedostępna");
+                                }
+                            } catch (Exception pe) {
+                                Log.w("KniejaApp", "Print error", pe);
+                                toast("Błąd podczas drukowania");
+                            }
+                        }
+                    });
+                    pw.loadDataWithBaseURL(START, html, "text/html", "utf-8", null);
+                    printView = pw;     // trzymamy referencję, żeby nie zniknął w trakcie drukowania
+                } catch (Exception e) {
+                    toast("Błąd drukowania");
+                }
             });
         }
     }
