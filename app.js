@@ -5,10 +5,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-133800";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-133800";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-134200";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-134200";
 
-const BUILD = "20261113-133800";
+const BUILD = "20261113-134200";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -1177,7 +1177,8 @@ function showInAppBanner({ icon, title, desc, onClick }) {
   if (!box) return;
   const toast = document.createElement("div");
   toast.className = "notif-toast";
-  toast.innerHTML = '<div class="icon">' + icon + '</div>' +
+  const iconHtml = (icon && icon.includes("<svg")) ? icon : mdi("bell", 24);
+  toast.innerHTML = '<div class="icon">' + iconHtml + '</div>' +
     '<div class="body"><div class="title">' + title + '</div><div class="desc">' + desc + '</div></div>' +
     '<button class="close" title="Zamknij">' + mdi("close", 18) + '</button>';
   const remove = () => {
@@ -1210,12 +1211,13 @@ function notifyKadraScan(scan) {
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     try {
       new Notification("Punktacja Knieja: Zeskanowano kod QR!", {
-        body: (scan.imie || "Harcerz") + ' (' + (scan.zastep || "brak") + ') zeskanował(a) kod „' + (scan.qrNazwa || "kod") + '”'
+        body: (scan.imie || "Harcerz") + ' (' + (scan.zastep || "brak") + ') zeskanował(a) kod „' + (scan.qrNazwa || "kod") + '”',
+        icon: "icons/icon-192.png"
       });
     } catch (e) {}
   }
   showInAppBanner({
-    icon: "icons/icon-192.png",
+    icon: mdi("bell", 24),
     title: "Zeskanowano kod QR!",
     desc: '<b>' + esc(scan.imie || "Harcerz") + '</b> (' + esc(scan.zastep || "brak") + ' · ' + esc(scan.rola || "harcerz") + ') zeskanował(a) kod: <b>' + esc(scan.qrNazwa || "kod") + '</b>',
     onClick: () => {
