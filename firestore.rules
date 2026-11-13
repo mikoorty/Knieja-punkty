@@ -94,5 +94,19 @@ service cloud.firestore {
           || (zastepowy() && request.resource.data.zglosil == request.auth.uid && zMojegoZastepu(request.resource.data.uid)));
       allow delete: if kadra() || (signed() && (resource.data.uid == request.auth.uid || resource.data.get('zglosil', '') == request.auth.uid));
     }
+
+    // Kody QR: tworzy i usuwa kadra, odczyt dostępny dla każdego (aby rozpoznać kod przed i po zalogowaniu)
+    match /kodyQr/{id} {
+      allow read: if true;
+      allow create, delete: if kadra();
+      allow update: if kadra() || (signed() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['skanyCount', 'ostatniSkan', 'ostatniSkanKto']));
+    }
+
+    // Rejestr skanów kodów QR: harcerz rejestruje swój skan; kadra ma wgląd do wszystkich skanów i zarządza
+    match /skanyQr/{id} {
+      allow read: if kadra() || (signed() && resource.data.uid == request.auth.uid);
+      allow create: if signed() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if kadra();
+    }
   }
 }

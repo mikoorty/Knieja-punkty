@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 
 <title>Punktacja zastępów</title>
-<link rel="manifest" href="manifest.json?v=20261109-095627"><meta name="theme-color" content="#2f5d3a">
+<link rel="manifest" href="manifest.json?v=20261113-093250"><meta name="theme-color" content="#2f5d3a">
 <link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png"><meta name="apple-mobile-web-app-title" content="Kniejapunkty">
 <meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
@@ -77,8 +77,25 @@ label.sw span{width:46px;height:26px;border-radius:99px;background:var(--line);p
 label.sw span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 label.sw input:checked+span{background:var(--acc)}label.sw input:checked+span::after{left:23px}
 label.sw input:disabled+span{opacity:.5}
+#notif_box{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;width:92%;max-width:480px;display:grid;gap:8px;pointer-events:none}
+.notif-toast{background:var(--card);color:var(--ink);border:2px solid var(--acc);border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:auto;display:flex;align-items:center;gap:12px;animation:toastDown .3s ease-out}
+@keyframes toastDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.notif-toast .icon{font-size:24px;flex:none}
+.notif-toast .body{flex:1;min-width:0}
+.notif-toast .title{font-weight:700;font-size:14px}
+.notif-toast .desc{font-size:13px;color:var(--mut);margin-top:2px;word-break:break-word}
+.notif-toast .close{background:none;border:none;color:var(--mut);font-size:18px;cursor:pointer;padding:4px 8px;flex:none}
+.scan-box{position:relative;width:100%;max-width:380px;aspect-ratio:1;margin:10px auto;border-radius:14px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}
+.scan-video{width:100%;height:100%;object-fit:cover;display:block}
+.scan-reticle{position:absolute;inset:24px;border:2px dashed rgba(255,255,255,.7);border-radius:12px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
+.scan-laser{position:absolute;left:0;right:0;height:2px;background:#34d399;box-shadow:0 0 10px #34d399;animation:scanLaser 2s infinite ease-in-out}
+@keyframes scanLaser{0%,100%{top:10%}50%{top:90%}}
+.qr-preview{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:10px;width:fit-content;margin:8px auto;border:1px solid var(--line)}
+.qr-preview svg{display:block;max-width:100%;height:auto}
+@media print{header,nav,footer,#upd,#notif_box,button:not(.print-keep),.no-print{display:none!important}body{background:#fff!important;color:#000!important}.card{border:none!important;box-shadow:none!important}}
 </style></head>
 <body>
+<div id="notif_box"></div>
 <div id="upd" hidden>🔄 Jest nowa wersja aplikacji — dotknij, aby odświeżyć</div>
 <header><div><h1>Punktacja zastępów</h1><small id="who">niezalogowany</small></div><div id="authbox"></div></header>
 <nav id="nav"></nav>
@@ -87,5 +104,7 @@ label.sw input:disabled+span{opacity:.5}
 <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
 <input type="file" id="galleryInput" accept="image/*" hidden>
 <div id="modal" hidden></div>
-<script type="module" src="app.js?v=20261109-095627"></script>
+<script src="vendor/qrcode.min.js"></script>
+<script src="vendor/jsqr.min.js"></script>
+<script type="module" src="app.js?v=20261113-093250"></script>
 </body></html>

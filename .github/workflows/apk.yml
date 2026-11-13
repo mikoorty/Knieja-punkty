@@ -10,7 +10,7 @@ permissions:
   contents: write
 jobs:
   apk:
-    if: github.repository == 'panbadek/Knieja-punkty'
+    if: github.repository == 'mikoorty/Knieja-punkty' || github.repository == 'panbadek/Knieja-punkty'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
