@@ -3,5 +3,5 @@
   "versionName": "1.5",
   "apkUrl": "https://github.com/mikoorty/Knieja-punkty/releases/latest/download/Kniejapunkty.apk",
   "title": "Nowa wersja aplikacji Kniejapunkty",
-  "message": "Dostępna jest nowa wersja aplikacji Kniejapunkty (1.5). Naprawiono działanie wszystkich przycisków akcji kodów QR (Drukuj, Pobierz PNG, Link, Skany, Usuń) oraz okna dialogowe w aplikacji."
+  "message": "Dostępna jest nowa wersja aplikacji Kniejapunkty (1.5). Nowy wygląd z ikonami MDI bez emoji oraz poprawka wykresów punktacji."
 }

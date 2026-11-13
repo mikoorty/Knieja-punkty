@@ -1,110 +1,47 @@
 <!doctype html>
-<html lang="pl"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-
-<title>Punktacja zastępów</title>
-<link rel="manifest" href="manifest.json?v=20261113-130524"><meta name="theme-color" content="#2f5d3a">
-<link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
-<link rel="apple-touch-icon" href="icons/icon-180.png"><meta name="apple-mobile-web-app-title" content="Kniejapunkty">
-<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
-<style>
-:root{--bg:#f4f1ea;--card:#fff;--ink:#1f2a22;--mut:#6b746d;--acc:#2f5d3a;--acc2:#e9efe8;--warn:#b5532f;--line:#ddd6c8;--gold:#9a6a00}
-@media (prefers-color-scheme:dark){:root{--bg:#141815;--card:#1d231f;--ink:#e8ece6;--mut:#9aa39b;--acc:#7fbf8c;--acc2:#24302a;--warn:#e08a66;--line:#2e3731;--gold:#e3b54f}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
-header{background:var(--acc);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
-@media (prefers-color-scheme:dark){header{color:#0f1410}}
-header h1{font-size:18px;margin:0}header small{opacity:.85}
-nav{display:flex;gap:4px;overflow-x:auto;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-nav button{white-space:nowrap}
-main{max-width:900px;margin:0 auto;padding:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
-h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:14px 0 6px}
-button{font:inherit;border:1px solid var(--line);background:var(--acc2);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
-button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}@media (prefers-color-scheme:dark){button.pri{color:#0f1410}}
-button.on{outline:2px solid var(--acc)}.gw{color:var(--gold);white-space:nowrap;letter-spacing:1px}.pak{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:6px 0;font:13px/1.45 ui-monospace,Menlo,Consolas,monospace}.powod{font-size:13px;color:var(--warn);margin-top:2px}.clist{display:grid;margin:6px 0}.crow{display:flex;justify-content:space-between;align-items:center;gap:6px 10px;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}.seg{display:inline-flex;gap:4px}.seg button{padding:5px 10px;font-size:14px}button.del{color:var(--warn)}
-input,select,textarea{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);max-width:100%}
-input[type=number]{width:70px}
-table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:6px 5px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-th{font-size:12px;color:var(--mut);font-weight:600}td.n,th.n{text-align:right}
-.scroll{overflow-x:auto}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
-.mut{color:var(--mut);font-size:13px}.badge{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--acc2)}
-.badge{white-space:nowrap;display:inline-block}.badge.adm{margin-top:3px;font-size:11px;padding:1px 7px}
-.badge.w{background:#f6e3c5;color:#7a4b10}.badge.ok{background:#d6ead9;color:#245c31}.badge.no{background:#f3d6cc;color:#8a2f17}
-.rank{display:grid;gap:8px}.rank .it{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:10px;border-radius:10px;background:var(--acc2)}
-.rank .pos{font-weight:700;font-size:18px;text-align:center}.rank .pts{font-weight:700;font-size:18px}
-.fire{font-size:13px}.err{color:var(--warn)}
-td.act{white-space:nowrap}td.act button{margin:2px 2px 2px 0}
-.it2{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:8px}.it2:last-of-type{border-bottom:0}
-button.big{font-size:17px;padding:12px 16px;width:100%}
-img.ph{max-width:100%;max-height:50vh;border-radius:10px;border:1px solid var(--line)}
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
-#modal[hidden]{display:none}#modal .box{background:var(--card);border-radius:12px;padding:12px;max-width:100%;max-height:100%;overflow:auto;display:grid;gap:10px}
-#modal img{max-width:100%;max-height:75vh;border-radius:8px}
-details summary{cursor:pointer;padding:6px 0}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
-.grid figure{margin:0;cursor:pointer;background:var(--acc2);border-radius:10px;overflow:hidden}
-.grid img{width:100%;aspect-ratio:1;object-fit:cover;display:block}.grid figcaption{padding:6px 8px;font-size:12px}
-a.btn{display:inline-block;text-decoration:none;font:inherit;border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--acc2);color:var(--ink)}
-a.btn.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
-#upd{background:#e9b949;color:#2b2000;padding:10px 16px;font-weight:600;cursor:pointer;text-align:center}#upd[hidden]{display:none}
-footer#ver{text-align:center;padding:8px 16px 24px;font-size:12px}
-[hidden]{display:none!important}
-.za{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px;display:grid;gap:4px}
-.hlist{display:grid;gap:8px;margin:8px 0}
-.hl{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:3px}
-.hl.kor{background:rgba(233,185,73,.12)}
-.hl-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
-.hl-pts{font-weight:700;font-size:17px;white-space:nowrap;color:var(--acc)}.hl-pts.neg{color:var(--warn)}
-.hl .row{margin:4px 0 0}
-td.n{white-space:nowrap}
-.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0}.lg{display:inline-flex;align-items:center;gap:6px;font-size:14px}
-.lg i,.tip i{display:inline-block;width:14px;height:4px;border-radius:4px}.lg b{font-weight:600}
-#chsvgbox svg{display:block;width:100%;height:auto;touch-action:pan-y}
-.viz .gl{stroke:var(--line);stroke-width:1;stroke-dasharray:2 5}.viz .g0{stroke-dasharray:none}.viz .ax{fill:var(--mut);font-size:11px}
-.viz .ln{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;transition:opacity .2s}.viz .fut{fill:var(--line);opacity:.25}.viz .today{stroke:var(--mut);stroke-width:1;stroke-dasharray:2 4;opacity:.7}
-.viz .cross{stroke:var(--mut);stroke-width:1;stroke-dasharray:3 3}.viz .dot{stroke:var(--card);stroke-width:2}#chwrap{position:relative}#chsvg{display:block;touch-action:pan-y;-webkit-tap-highlight-color:transparent}
-.tip{position:absolute;top:6px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);pointer-events:none;min-width:130px}
-.tip div{display:flex;align-items:center;gap:6px}.tip span{margin-left:auto;font-weight:600;padding-left:10px}
-:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300}
-@media (prefers-color-scheme:dark){:root{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300}}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:8px 0}
-.tile{background:var(--acc2);border-radius:10px;padding:10px 12px}.tile b{display:block;font-size:22px;margin:2px 0}
-.fld{border-bottom:1px solid var(--line);padding:8px 0}.fld:last-child{border-bottom:0}.fv{font-size:17px;font-weight:600}
-.perm{display:inline-block;font-size:12px;color:var(--mut);margin-top:2px}
-label.sw{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-weight:600}
-label.sw input{position:absolute;opacity:0;width:0;height:0}
-label.sw span{width:46px;height:26px;border-radius:99px;background:var(--line);position:relative;transition:background .2s;flex:none}
-label.sw span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-label.sw input:checked+span{background:var(--acc)}label.sw input:checked+span::after{left:23px}
-label.sw input:disabled+span{opacity:.5}
-#notif_box{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:9999;width:92%;max-width:480px;display:grid;gap:8px;pointer-events:none}
-.notif-toast{background:var(--card);color:var(--ink);border:2px solid var(--acc);border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:auto;display:flex;align-items:center;gap:12px;animation:toastDown .3s ease-out}
-@keyframes toastDown{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.notif-toast .icon{font-size:24px;flex:none}
-.notif-toast .body{flex:1;min-width:0}
-.notif-toast .title{font-weight:700;font-size:14px}
-.notif-toast .desc{font-size:13px;color:var(--mut);margin-top:2px;word-break:break-word}
-.notif-toast .close{background:none;border:none;color:var(--mut);font-size:18px;cursor:pointer;padding:4px 8px;flex:none}
-.scan-box{position:relative;width:100%;max-width:380px;aspect-ratio:1;margin:10px auto;border-radius:14px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center}
-.scan-video{width:100%;height:100%;object-fit:cover;display:block}
-.scan-reticle{position:absolute;inset:24px;border:2px dashed rgba(255,255,255,.7);border-radius:12px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.45)}
-.scan-laser{position:absolute;left:0;right:0;height:2px;background:#34d399;box-shadow:0 0 10px #34d399;animation:scanLaser 2s infinite ease-in-out}
-@keyframes scanLaser{0%,100%{top:10%}50%{top:90%}}
-.qr-preview{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:10px;width:fit-content;margin:8px auto;border:1px solid var(--line)}
-.qr-preview svg{display:block;max-width:100%;height:auto}
-@media print{header,nav,footer,#upd,#notif_box,button:not(.print-keep),.no-print{display:none!important}body{background:#fff!important;color:#000!important}.card{border:none!important;box-shadow:none!important}}
-</style></head>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Punktacja zastępów · 8 UDH „Knieja”</title>
+<link rel="manifest" href="manifest.json?v=20261113-133500">
+<meta name="theme-color" content="#1e4a30">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-title" content="Kniejapunkty">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="style.css?v=20261113-133500">
+</head>
 <body>
 <div id="notif_box"></div>
-<div id="upd" hidden>🔄 Jest nowa wersja aplikacji — dotknij, aby odświeżyć</div>
-<header><div><h1>Punktacja zastępów</h1><small id="who">niezalogowany</small></div><div id="authbox"></div></header>
+<div id="upd" hidden>
+  <svg class="mdi-icon" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+  <span>Dostępna jest nowa wersja aplikacji — kliknij, aby odświeżyć</span>
+</div>
+<header>
+  <div class="brand-wrap">
+    <div class="brand-icon">
+      <svg class="mdi-icon" viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M10,21V18H3L8,13H5L10,8H7L12,3L17,8H14L19,13H16L21,18H14V21H10Z"/></svg>
+    </div>
+    <div class="brand-text">
+      <h1>8 UDH „Knieja”</h1>
+      <small id="who">Punktacja zastępów</small>
+    </div>
+  </div>
+  <div id="authbox" class="auth-box"></div>
+</header>
 <nav id="nav"></nav>
-<main id="main"><div class="card">Ładowanie…</div></main>
-<footer id="ver" class="mut"></footer>
+<main id="main">
+  <div class="card">Ładowanie…</div>
+</main>
+<footer id="ver"></footer>
 <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
 <input type="file" id="galleryInput" accept="image/*" hidden>
 <div id="modal" hidden></div>
 <script src="vendor/qrcode.min.js"></script>
 <script src="vendor/jsqr.min.js"></script>
-<script type="module" src="app.js?v=20261113-130524"></script>
-</body></html>
+<script type="module" src="app.js?v=20261113-133500"></script>
+</body>
+</html>

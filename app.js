@@ -1,13 +1,14 @@
+import { mdi } from "./icons.js";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, updatePassword, deleteUser, reauthenticateWithCredential, EmailAuthProvider }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-130524";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-130524";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-133500";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-133500";
 
-const BUILD = "20261113-130524";
+const BUILD = "20261113-133500";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -194,7 +195,17 @@ onAuthStateChanged(auth, async u => {
 function pickQuarter() { const t = today(); const i = S.cfg.kwartaly.findIndex(q => t >= q.start && t <= q.end); if (i >= 0 && S._qset !== true) S.q = i; }
 
 // ---------- nawigacja
-const TABS = [["wyniki","🏆 Wyniki"],["zbiorki","🔥 Zbiórki zastępu"],["akcje","⛺ Zbiórki drużyny / biwaki"],["alarmy","🚨 Alarmy"],["sprawnosci","🎖 Sprawności"],["qr","📷 Kody QR"],["ja","👤 Ja"],["ustawienia","⚙️ Ustawienia"],["uzytkownicy","👥 Użytkownicy"]];
+const TABS = [
+  ["wyniki", "Wyniki", "trophy"],
+  ["zbiorki", "Zbiórki", "calendar-clock"],
+  ["akcje", "Akcje i gry", "compass"],
+  ["alarmy", "Alarmy", "shield-alert"],
+  ["sprawnosci", "Sprawności", "medal"],
+  ["qr", "Kody QR", "qrcode-scan"],
+  ["ja", "Profil", "account-circle"],
+  ["ustawienia", "Ustawienia", "cog"],
+  ["uzytkownicy", "Konta", "account-group"]
+];
 const ROLA_TXT = () => ({ admin: "kadra · administrator", kadra: isAdmin() ? "kadra · administrator" : "kadra", zastepowy: "zastępowy · " + (S.profile?.zastep || "bez zastępu"),
   szeregowy: "szeregowy · " + (S.profile?.zastep || "bez zastępu"), brak: "konto nieaktywne" }[rola()] || (S.user && !S.profile ? "konto nieaktywne" : ""));
 function renderChrome() {
@@ -203,14 +214,15 @@ function renderChrome() {
   $("#out") && ($("#out").onclick = () => signOut(auth));
   $("#in") && ($("#in").onclick = () => { S.tab = "login"; render(); });
   const vis = TABS.filter(([k]) => ["uzytkownicy", "ustawienia"].includes(k) ? isKadra() : k === "ja" ? !!(S.user && S.profile) : true);
-  const tabLabel = (k, l) => {
+  const tabLabel = (k, l, ico) => {
+    const iconSvg = mdi(ico || "star", 16);
     if (k === "qr") {
-      if (isKadra()) return `📷 Kody QR${S.unreadScans > 0 ? ` <span class="badge ok">${S.unreadScans}</span>` : ""}`;
-      return "📷 Skanuj QR";
+      if (isKadra()) return `${iconSvg}<span>Kody QR</span>${S.unreadScans > 0 ? ` <span class="badge ok">${S.unreadScans}</span>` : ""}`;
+      return `${iconSvg}<span>Skanuj QR</span>`;
     }
-    return l;
+    return `${iconSvg}<span>${l}</span>`;
   };
-  $("#nav").innerHTML = vis.map(([k, l]) => `<button data-t="${k}" class="${S.tab === k ? "on" : ""}">${tabLabel(k, l)}</button>`).join("");
+  $("#nav").innerHTML = vis.map(([k, l, ico]) => `<button data-t="${k}" class="${S.tab === k ? "on" : ""}">${tabLabel(k, l, ico)}</button>`).join("");
   $("#nav").querySelectorAll("button").forEach(b => b.onclick = () => {
     if (S.tab === "qr" && b.dataset.t !== "qr") stopQrScanner();
     S.tab = b.dataset.t;
@@ -236,10 +248,11 @@ const binders = {};
 
 // ---------- logowanie
 function vLogin() {
-  return `<div class="card">${S.pendingScanNotice ? `<div style="background:var(--acc2);border:1px solid var(--acc);border-radius:8px;padding:10px;margin-bottom:12px;color:var(--ink);"><b>ℹ️ ${esc(S.pendingScanNotice)}</b></div>` : ""}<h2>Logowanie</h2>
-  <div class="row"><input id="em" placeholder="Login" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
-  <div class="row"><input id="pw" type="password" placeholder="Hasło" autocomplete="current-password"></div>
-  <div class="row"><button class="pri" id="li">Zaloguj</button></div>
+  return `<div class="card">${S.pendingScanNotice ? `<div style="background:var(--ok-bg);border:1px solid var(--ok-line);border-radius:var(--radius-md);padding:12px;margin-bottom:14px;color:var(--ok);display:flex;align-items:center;gap:10px;">${mdi("qrcode-scan", 20)}<b>${esc(S.pendingScanNotice)}</b></div>` : ""}<h2>${mdi("login", 20)} Logowanie do systemu</h2>
+  <p class="mut">Zaloguj się na konto harcerza lub kadry 8 UDH „Knieja”.</p>
+  <div class="row"><input id="em" placeholder="Login" autocomplete="username" autocapitalize="none" spellcheck="false" style="flex:1;min-width:240px"></div>
+  <div class="row"><input id="pw" type="password" placeholder="Hasło" autocomplete="current-password" style="flex:1;min-width:240px"></div>
+  <div class="row"><button class="pri" id="li">${mdi("login", 16)} Zaloguj się</button></div>
   <p class="mut">Konta zakłada administrator — od niego dostajesz login i hasło.</p>
   </div>`;
 }
@@ -274,12 +287,12 @@ function vWyniki() {
   const order = [...ZASTEPY].sort((a, b) => t[b].suma - t[a].suma);
   let pos = 0, last = null;
   const items = order.map((z, i) => { if (t[z].suma !== last) { pos = i + 1; last = t[z].suma; }
-    return `<div class="it"><div class="pos">${pos}</div><div><b>${z}</b> <span class="fire">${t[z].streak ? "🔥".repeat(Math.min(t[z].streak, 5)) + " " + t[z].streak : ""}</span>
+    return `<div class="it"><div class="pos">${pos}</div><div><b>${z}</b> <span class="fire">${t[z].streak ? `<span class="streak-pill">${mdi("fire", 14)} ${t[z].streak}</span>` : ""}</span>
     <div class="mut">zbiórki ${frac(t[z].zbiorki)} · drużyna ${frac(t[z].akcje)} · alarmy ${frac(t[z].alarmy)} · sprawności ${frac(t[z].sprawnosci)}</div></div>
     <div class="pts">${frac(t[z].suma)}</div></div>`; }).join("");
   const det = ZASTEPY.map(z => `<details><summary><b>${z}</b> — historia streaka</summary><table><tr><th>Tydzień</th><th class="n">n</th><th class="n">Pkt</th><th></th></tr>
     ${t[z].log.map(l => `<tr><td>${plDay(l.tydzien)}</td><td class="n">${l.n}</td><td class="n">${frac(l.pkt)}</td><td class="mut">${l.info || ""}</td></tr>`).join("") || `<tr><td colspan=4 class="mut">brak</td></tr>`}</table></details>`).join("");
-  return `<div class="card"><h2>Ranking</h2>${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
+  return `<div class="card"><h2>Ranking</h2>${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">${mdi("file-document", 16)} Historia punktów</button><button id="arch">${mdi("package-variant", 16)} Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
 }
 
 binders.wyniki = () => {
@@ -306,16 +319,16 @@ function vZbiorki() {
       <div class="row"><label style="flex:1">Nazwa sprawności<br><input id="zs_n" list="sp_names" placeholder="np. Kucharz" autocomplete="off" style="width:100%"></label></div>${namesList()}
       <div class="row"><span class="mut">Gwiazdki:</span>${starBtns("zg", S.zsG || 1)}</div>
       <div id="zs_list"></div>
-      <p class="mut">${isKadra() ? "Sprawność od razu zostanie przyznana (zakładka 🎖 Sprawności)." : "Sprawność i punkty za nią zostaną przyznane dopiero po zatwierdzeniu przez kadrę (osobno, w zakładce 🎖 Sprawności). Do tego czasu nikt jej nie ma i punkty się nie liczą."}</p></div>
+      <p class="mut">${isKadra() ? "Sprawność od razu zostanie przyznana (zakładka Sprawności)." : "Sprawność i punkty za nią zostaną przyznane dopiero po zatwierdzeniu przez kadrę (osobno, w zakładce Sprawności). Do tego czasu nikt jej nie ma i punkty się nie liczą."}</p></div>
     <div class="row"><button class="pri" id="zadd">Zgłoś</button></div>
     <p class="mut">Można zgłaszać tylko zbiórki z bieżącego kwartału: <b>${esc(cq.nazwa)}</b> (${plDay(cq.start)} – ${plDay(cq.end)}).<br>
     Zbiórka liczy się do punktacji dopiero po zatwierdzeniu przez kadrę. Liczy się jedna zbiórka na tydzień (pon–nd).</p></div>`;
-  const zCell = z => isKadra() ? `<select data-zs="${z.id}">${ZASTEPY.includes(z.zastep) ? "" : `<option value="">⚠ wybierz</option>`}${ZASTEPY.map(x => `<option ${x === z.zastep ? "selected" : ""}>${x}</option>`).join("")}</select>`
+  const zCell = z => isKadra() ? `<select data-zs="${z.id}">${ZASTEPY.includes(z.zastep) ? "" : `<option value="">— wybierz zastęp —</option>`}${ZASTEPY.map(x => `<option ${x === z.zastep ? "selected" : ""}>${x}</option>`).join("")}</select>`
       : (ZASTEPY.includes(z.zastep) ? z.zastep : `<span class="err">brak zastępu</span>`);
-  const row = (z, who) => `<tr><td><b>${plDay(z.data)}</b></td><td class="mut">${plTs(z.utworzono)}</td><td>${zCell(z)}</td><td>${esc(z.opis)}${(sp => sp ? `<div class="mut">🎖 ${esc(sp.nazwa)} <span class="gw">${gw(sp.gwiazdki)}</span> · cały zastęp · ${SSTAT[sp.status]?.[1] || esc(sp.status)}</div>` : "")(S.sprawnosci.find(s => s.zbiorkaId === z.id))}${z.status === "odrzucona" ? powodTxt(z.powod) : ""}</td>
+  const row = (z, who) => `<tr><td><b>${plDay(z.data)}</b></td><td class="mut">${plTs(z.utworzono)}</td><td>${zCell(z)}</td><td>${esc(z.opis)}${(sp => sp ? `<div class="mut">${mdi("medal", 14)} ${esc(sp.nazwa)} <span class="gw">${gw(sp.gwiazdki)}</span> · cały zastęp · ${SSTAT[sp.status]?.[1] || esc(sp.status)}</div>` : "")(S.sprawnosci.find(s => s.zbiorkaId === z.id))}${z.status === "odrzucona" ? powodTxt(z.powod) : ""}</td>
     ${who ? `<td>${ktoKiedy(z.zatwierdzilImie, z.zatwierdzil, z.zatwierdzono)}</td>` : ""}<td class="act">
-    ${isKadra() && z.status !== "zatwierdzona" ? `<button data-ok="${z.id}">✔ Zatwierdź</button>` : ""}
-    ${isKadra() && z.status === "oczekuje" ? `<button data-no="${z.id}" title="Odrzuć">✖</button>` : ""}
+    ${isKadra() && z.status !== "zatwierdzona" ? `<button data-ok="${z.id}">${mdi("check", 15)} Zatwierdź</button>` : ""}
+    ${isKadra() && z.status === "oczekuje" ? `<button data-no="${z.id}" title="Odrzuć">${mdi("close", 15)}</button>` : ""}
     ${(isKadra() || (z.zastep === mine && z.status === "oczekuje")) ? `<button class="del" data-del="${z.id}">Usuń</button>` : ""}</td></tr>`;
   const table = (list, empty, who) => `<div class="scroll"><table><tr><th>Data zbiórki</th><th>Zgłoszono</th><th>Zastęp</th><th>Opis</th>${who ? `<th>${who}</th>` : ""}<th></th></tr>
     ${list.map(z => row(z, who)).join("") || `<tr><td colspan=6 class="mut">${empty}</td></tr>`}</table></div>`;
@@ -324,16 +337,16 @@ function vZbiorki() {
     const mz = S.profile?.zastep;
     if (!ZASTEPY.includes(mz)) return `<div class="card"><p class="err">Nie masz przypisanego zastępu. Poproś kadrę o przypisanie.</p></div>`;
     const accMine = S.zbiorki.filter(z => z.status === "zatwierdzona" && z.zastep === mz && inQ(z.data));
-    return `<div class="card"><h2>✅ Zbiórki zastępu ${esc(mz)} <span class="badge ok">${accMine.length}</span></h2>${quarterPicker()}${table(accMine, "Brak zatwierdzonych zbiórek w tym kwartale", "Zatwierdził")}</div>`;
+    return `<div class="card"><h2>${mdi("calendar-clock", 20)} Zbiórki zastępu ${esc(mz)} <span class="badge ok">${accMine.length}</span></h2>${quarterPicker()}${table(accMine, "Brak zatwierdzonych zbiórek w tym kwartale", "Zatwierdził")}</div>`;
   }
   const pend = S.zbiorki.filter(z => z.status === "oczekuje");
   const acc = S.zbiorki.filter(z => z.status === "zatwierdzona" && inQ(z.data));
   const rej = S.zbiorki.filter(z => z.status === "odrzucona" && inQ(z.data));
   return (isKadra() ? `<div class="card">${histBtn()}</div>` : "") + form
-    + `<div class="card"><h2>⏳ Oczekujące na zatwierdzenie <span class="badge w">${pend.length}</span></h2>${table(pend, "Brak oczekujących zgłoszeń")}</div>`
-    + `<div class="card"><h2>✅ Zatwierdzone <span class="badge ok">${acc.length}</span></h2>${quarterPicker()}${table(acc, "Brak zatwierdzonych zbiórek w tym kwartale", "Zatwierdził")}
+    + `<div class="card"><h2>${mdi("calendar-clock", 20)} Oczekujące na zatwierdzenie <span class="badge w">${pend.length}</span></h2>${table(pend, "Brak oczekujących zgłoszeń")}</div>`
+    + `<div class="card"><h2>${mdi("check-circle", 20)} Zatwierdzone <span class="badge ok">${acc.length}</span></h2>${quarterPicker()}${table(acc, "Brak zatwierdzonych zbiórek w tym kwartale", "Zatwierdził")}
       ${rej.length ? `<details><summary class="mut">Odrzucone w tym kwartale (${rej.length})</summary>${table(rej, "", "Odrzucił")}</details>` : ""}
-      <div class="row">${odrzBtn("❌ Wszystkie odrzucone prośby")}</div></div>`;
+      <div class="row">${odrzBtn("Wszystkie odrzucone prośby")}</div></div>`;
 }
 binders.zbiorki = () => {
   if (S.view?.kind === "hist") return bindHist("zbiorki");
@@ -353,7 +366,7 @@ binders.zbiorki = () => {
     if (sp && sp.nazwa.length < 2) return alert("Wpisz nazwę sprawności zdobytej przez zastęp (albo wyłącz tę opcję)");
     const target = sp ? calyTarget(zastep, sp.g, sp.nazwa) : null;
     if (sp && !target.uczestnicy.length && !target.mieli.length) return alert(`W zastępie ${zastep} nie ma jeszcze kont harcerzy, więc nie da się dodać sprawności całego zastępu.`);
-    if (sp && !target.uczestnicy.length) return alert("Zaznacz, kto zdobył sprawność (nikt nie ma „✔ zdobył(a)”).");
+    if (sp && !target.uczestnicy.length) return alert("Zaznacz, kto zdobył sprawność.");
     const btn = $("#zadd"); btn.disabled = true; let ref = null;
     try {
       ref = await addDoc(collection(db, "zbiorkiZastepu"), { zastep, data, opis: $("#zo").value, status: "oczekuje", autor: S.user.uid, utworzono: serverTimestamp() });
@@ -409,7 +422,7 @@ function vAkcje() {
     return `<tr><td>${plDay(a.data)}</td><td>${a.typ === "biwak" ? "Biwak" : "Zbiórka"}: ${esc(a.nazwa)}</td>${ZASTEPY.map(z => `<td class="n">${frac(r[z].total)}</td>`).join("")}
     <td>${isKadra() ? `<button data-e="${a.id}">Edytuj</button>` : ""}</td></tr>`; }).join("");
   return `<div class="card"><h2>Zbiórki drużyny i biwaki</h2>${quarterPicker()}
-    ${isKadra() ? `<div class="row"><button class="pri" id="anew">+ Nowa zbiórka drużyny / biwak</button><button id="hist">📜 Historia punktów</button></div>` : ""}
+    ${isKadra() ? `<div class="row"><button class="pri" id="anew">+ Nowa zbiórka drużyny / biwak</button><button id="hist">${mdi("file-document", 16)} Historia punktów</button></div>` : ""}
     <div class="scroll"><table><tr><th>Data</th><th>Akcja</th>${ZASTEPY.map(z => `<th class="n">${z}</th>`).join("")}<th></th></tr>
     ${rows || `<tr><td colspan=9 class="mut">Brak akcji w tym kwartale</td></tr>`}</table></div>
     <p class="mut">Punkty = (gry + umundurowanie) × obecni / liczebność zastępu.</p></div>`;
@@ -473,7 +486,7 @@ const progLabels = pm => pm.map((t, i) => `${i ? pm[i - 1] : 0}–${t} min`).con
 const emptyAlarm = () => ({ nazwa: "", data: today(), start: "12:00", progiMin: [...(S.cfg.alarmProgiMin || [20, 40, 60])], dane: {} });
 const myMeld = al => S.meldunki.find(m => m.alarmId === al.id && m.uid === S.user?.uid);
 const meldOf = al => S.meldunki.filter(m => m.alarmId === al.id);
-const MSTAT = { oczekuje: ["w", "✅ Wykonane · czeka na akceptację"], zaakceptowany: ["ok", "✅ Wykonane · zaakceptowane"], odrzucony: ["no", "❌ Odrzucone"] };
+const MSTAT = { oczekuje: ["w", `${mdi("calendar-clock", 13)} Czeka na akceptację`], zaakceptowany: ["ok", `${mdi("check-circle", 13)} Zaakceptowane`], odrzucony: ["no", `${mdi("close-circle", 13)} Odrzucone`] };
 function alarmState(al) {
   const now = Date.now();
   if (al.startMs == null) return "brak";
@@ -494,13 +507,13 @@ function vAlarmy() {
       const status = x => `<span class="badge ${MSTAT[x.status]?.[0]}">${MSTAT[x.status]?.[1] || x.status}</span> <span class="mut">zgłoszono ${plTime(x.czasMs)}${x.zglosil && x.zglosil !== S.user.uid ? ` · zgłosił(a) ${esc(x.zglosilImie || "zastępowy")}` : ""}${x.status !== "oczekuje" && (x.sprawdzilImie || x.sprawdzil) ? ` · ${x.status === "odrzucony" ? "odrzucił" : "zaakceptował"}: ${esc(kto(x.sprawdzilImie, x.sprawdzil))}` : ""}</span>${x.status === "odrzucony" ? powodTxt(x.powod) : ""}`;
       let body;
       if (P && st === "trwa") body = `${P.za ? `<p>Meldunek za: <b>${esc(P.za.imie)}</b></p>` : ""}<img class="ph" src="${P.data}" alt="zdjęcie">
-        <div class="row"><button class="pri" data-send="${a.id}">📨 Wyślij meldunek${P.za ? " za " + esc(P.za.imie.split(" ")[0]) : ""}</button><button data-retake="${a.id}">📸 Inne zdjęcie</button><button data-gal="${a.id}" data-keep="1">🖼 Z galerii</button><button data-cancelph>Anuluj</button></div>`;
+        <div class="row"><button class="pri" data-send="${a.id}">${mdi("bell", 15)} Wyślij meldunek${P.za ? " za " + esc(P.za.imie.split(" ")[0]) : ""}</button><button data-retake="${a.id}">${mdi("camera", 15)} Inne zdjęcie</button><button data-gal="${a.id}" data-keep="1">${mdi("image", 15)} Z galerii</button><button data-cancelph>Anuluj</button></div>`;
       else {
         if (m) body = `${status(m)} ${m.status === "oczekuje" && (m.uid === S.user.uid && (!m.zglosil || m.zglosil === S.user.uid)) ? `<button class="del" data-undo="${m.id}">Cofnij</button>` : ""}`;
         else if (!ZASTEPY.includes(mine)) body = `<span class="err">Nie masz przypisanego zastępu — poproś kadrę.</span>`;
         else if (st === "przed") body = `<span class="mut">Start: ${plTs(a.startMs)}</span>`;
-        else if (st === "trwa") body = `<div class="row"><button class="pri big" data-meld="${a.id}">📸 Zrób zdjęcie i zamelduj</button></div>
-          <div class="row"><button class="big" data-gal="${a.id}">🖼 Wybierz zdjęcie z galerii</button></div>`;
+        else if (st === "trwa") body = `<div class="row"><button class="pri big" data-meld="${a.id}">${mdi("camera", 18)} Zrób zdjęcie i zamelduj</button></div>
+          <div class="row"><button class="big" data-gal="${a.id}">${mdi("image", 15)} Wybierz zdjęcie z galerii</button></div>`;
         else body = `<span class="mut">Alarm zakończony</span>`;
         // zastępowy: meldowanie za harcerzy swojego zastępu
         if (rola() === "zastepowy" && ZASTEPY.includes(mine) && st !== "przed") {
@@ -508,28 +521,28 @@ function vAlarmy() {
           const mojeZa = ms.filter(x => x.zglosil === S.user.uid && x.uid !== S.user.uid);
           const kand = (S.zUsers || []).filter(u => u.id !== S.user.uid && !done.has(u.id) && u.zastep === mine)
             .sort((x, y) => (x.imie || "").localeCompare(y.imie || "", "pl"));
-          body += `<div class="za"><b>👥 Za harcerzy z zastępu</b>
+          body += `<div class="za"><b>${mdi("account-group", 16)} Za harcerzy z zastępu</b>
             ${mojeZa.map(x => `<div class="row">${esc(x.imie)} — ${status(x)} ${x.status === "oczekuje" ? `<button class="del" data-undo="${x.id}">Cofnij</button>` : ""}</div>`).join("")}
             ${st === "trwa" ? (kand.length ? `<div class="row"><select id="za_${a.id}"><option value="">– wybierz harcerza –</option>${kand.map(u => `<option value="${u.id}">${esc(u.imie)}</option>`).join("")}</select></div>
-              <div class="row"><button data-zcam="${a.id}">📸 Zdjęcie</button><button data-zgal="${a.id}">🖼 Z galerii</button></div>`
+              <div class="row"><button data-zcam="${a.id}">${mdi("camera", 15)} Zdjęcie</button><button data-zgal="${a.id}">${mdi("image", 15)} Z galerii</button></div>`
               : `<p class="mut">Wszyscy z Twojego zastępu mają już meldunek.</p>`) : ""}</div>`;
         }
       }
       return `<div class="it2"><div><b>${esc(a.nazwa) || "Alarm"}</b> <span class="mut">${plDay(a.data)}${a.start ? ", start " + a.start : ""}</span></div>${body}</div>`;
     }).join("");
-    my = `<div class="card"><h2>📣 Meldowanie alarmów</h2>${items || `<p class="mut">Brak trwających alarmów.</p>`}
+    my = `<div class="card"><h2>${mdi("bell", 20)} Meldowanie alarmów</h2>${items || `<p class="mut">Brak trwających alarmów.</p>`}
       <p class="mut">Po wykonaniu alarmu zrób zdjęcie (albo wybierz je z galerii) i wyślij meldunek. Liczy się godzina wysłania. Punkty naliczają się po akceptacji przez kadrę.${rola() === "zastepowy" ? " Jako zastępowy możesz też zameldować harcerza ze swojego zastępu, który nie ma telefonu." : ""}</p></div>`;
   }
   const list = S.alarmy.filter(a => inQ(a.data));
   const rows = list.map(a => { const r = alarmPoints(S.cfg, a, S.meldunki), ms = meldOf(a);
     const cnt = z => ms.filter(m => m.zastep === z && m.status !== "odrzucony").length;
     const pend = ms.filter(m => m.status === "oczekuje").length;
-    return `<tr><td>${plDay(a.data)}${a.start ? `<div class="mut">${a.start}</div>` : ""}</td><td>${esc(a.nazwa)}</td>${ZASTEPY.map(z => `<td class="n">${frac(r[z].total)}${cnt(z) ? `<div class="mut">✔ ${cnt(z)}</div>` : ""}</td>`).join("")}
+    return `<tr><td>${plDay(a.data)}${a.start ? `<div class="mut">${a.start}</div>` : ""}</td><td>${esc(a.nazwa)}</td>${ZASTEPY.map(z => `<td class="n">${frac(r[z].total)}${cnt(z) ? `<div class="mut">${cnt(z)} meld.</div>` : ""}</td>`).join("")}
     <td class="act"><button data-v="${a.id}">Meldunki${pend && isKadra() ? ` <span class="badge w">${pend}</span>` : ""}</button>${isKadra() ? `<button data-e="${a.id}">Edytuj</button>` : ""}</td></tr>`; }).join("");
-  return my + `<div class="card"><h2>Alarmy</h2>${quarterPicker()}${isKadra() ? `<div class="row"><button class="pri" id="anew">+ Nowy alarm</button><button id="photos">🖼 Zdjęcia z alarmów</button><button id="hist">📜 Historia punktów</button>${odrzBtn("❌ Odrzucone")}</div>` : ""}
+  return my + `<div class="card"><h2>Alarmy</h2>${quarterPicker()}${isKadra() ? `<div class="row"><button class="pri" id="anew">+ Nowy alarm</button><button id="photos">${mdi("image", 15)} Zdjęcia z alarmów</button><button id="hist">${mdi("file-document", 16)} Historia punktów</button>${odrzBtn("Odrzucone")}</div>` : ""}
     <div class="scroll"><table><tr><th>Data</th><th>Alarm</th>${ZASTEPY.map(z => `<th class="n">${z}</th>`).join("")}<th></th></tr>
     ${rows || `<tr><td colspan=9 class="mut">Brak alarmów w tym kwartale</td></tr>`}</table></div>
-    <p class="mut">Punkty liczą tylko zaakceptowane meldunki. „✔ n” = liczba meldunków (także czekających na akceptację).</p></div>`;
+    <p class="mut">Punkty liczą tylko zaakceptowane meldunki. Liczba meldunków obejmuje także oczekujące na akceptację.</p></div>`;
 }
 binders.alarmy = () => {
   if (S.edit?.kind === "alarm") return bindAlarmEdit();
@@ -645,7 +658,7 @@ function vPhotos() {
       ${ph ? (ph.length ? `<div class="grid">${ph.map(p => `<figure data-big="${a.id}|${p.id}"><img src="${p.img}" alt="" loading="lazy">
         <figcaption><b>${esc(p.m.imie)}</b> · ${esc(p.m.zastep)}<br>${plTime(p.m.czasMs)} · <span class="badge ${MSTAT[p.m.status]?.[0] || ""}">${esc(STAT_PL[p.m.status] || p.m.status)}</span></figcaption></figure>`).join("")}</div>`
         : `<p class="mut">Brak zdjęć.</p>`) : ""}</div>`; }).join("");
-  return `<div class="card"><div class="row"><button id="back">← Alarmy</button></div><h2>🖼 Zdjęcia z alarmów</h2>${quarterPicker()}
+  return `<div class="card"><div class="row"><button id="back">${mdi("arrow-left", 15)} Alarmy</button></div><h2>${mdi("image", 20)} Zdjęcia z alarmów</h2>${quarterPicker()}
     <div class="row"><button class="pri" id="zipall" ${list.length ? "" : "disabled"}>⬇ Pobierz wszystkie z kwartału (ZIP)</button></div>
     <p class="mut">W paczce ZIP każdy alarm ma osobny folder, a pliki nazywają się: zastęp – imię i nazwisko – godzina (status).</p></div>
     ${cards || `<div class="card"><p class="mut">Brak alarmów w tym kwartale.</p></div>`}`;
@@ -670,13 +683,13 @@ function vAlarmDetail() {
   const row = (m, who) => { const min = meldMinute(a, m), pi = min == null ? null : progIndex(S.cfg, a, min);
     return `<tr><td>${plTime(m.czasMs)}<div class="mut">${min == null ? "" : Math.floor(min) + " min"}</div></td><td>${esc(m.imie)}${m.zglosil && m.zglosil !== m.uid ? `<div class="mut">zgłosił(a) ${esc(m.zglosilImie || "zastępowy")}</div>` : ""}${m.status === "odrzucony" ? powodTxt(m.powod) : ""}</td><td>${esc(m.zastep)}</td>
     <td>${pi == null ? "–" : `${pi + 1}. próg<div class="mut">${S.cfg.alarmProgi[pi] ?? 0} pkt</div>`}</td>
-    ${who ? `<td>${ktoKiedy(m.sprawdzilImie, m.sprawdzil, m.sprawdzono)}</td>` : ""}<td class="act">${isKadra() || m.uid === S.user?.uid ? `<button data-ph="${m.id}">📷</button>` : ""}
-    ${isKadra() && m.status !== "zaakceptowany" ? `<button data-acc="${m.id}">✔ Akceptuj</button>` : ""}
-    ${isKadra() && m.status !== "odrzucony" ? `<button data-rej="${m.id}" title="Odrzuć">✖</button>` : ""}</td></tr>`; };
+    ${who ? `<td>${ktoKiedy(m.sprawdzilImie, m.sprawdzil, m.sprawdzono)}</td>` : ""}<td class="act">${isKadra() || m.uid === S.user?.uid ? `<button data-ph="${m.id}" title="Pokaż zdjęcie">${mdi("camera", 14)} Zdjęcie</button>` : ""}
+    ${isKadra() && m.status !== "zaakceptowany" ? `<button data-acc="${m.id}">${mdi("check", 14)} Akceptuj</button>` : ""}
+    ${isKadra() && m.status !== "odrzucony" ? `<button data-rej="${m.id}" title="Odrzuć">${mdi("close", 15)}</button>` : ""}</td></tr>`; };
   const tbl = (list, empty, who) => `<div class="scroll"><table><tr><th>Godz.</th><th>Kto</th><th>Zastęp</th><th>Próg</th>${who ? `<th>${who}</th>` : ""}<th></th></tr>
     ${list.map(m => row(m, who)).join("") || `<tr><td colspan=6 class="mut">${empty}</td></tr>`}</table></div>`;
   const pend = ms.filter(m => m.status === "oczekuje"), acc = ms.filter(m => m.status === "zaakceptowany"), rej = ms.filter(m => m.status === "odrzucony");
-  return `<div class="card"><div class="row"><button id="back">← Alarmy</button></div>
+  return `<div class="card"><div class="row"><button id="back">${mdi("arrow-left", 15)} Alarmy</button></div>
     <h2>${esc(a.nazwa) || "Alarm"}</h2><p class="mut">${plDay(a.data)}${a.start ? ", start " + a.start : ""} · progi: ${labels.join(" · ")}</p>
     <div class="scroll"><table>${head()}
     <tr><td>Meldunki (zaakc.)</td>${ZASTEPY.map(z => `<td class="n">${r[z].meld}</td>`).join("")}</tr>
@@ -684,8 +697,8 @@ function vAlarmDetail() {
     <tr><td>Miejsce / bonus</td>${ZASTEPY.map(z => `<td class="n">${r[z].miejsce ? r[z].miejsce + ". / " + r[z].bonus : "–"}</td>`).join("")}</tr>
     <tr><td><b>Razem</b></td>${ZASTEPY.map(z => `<td class="n"><b>${frac(r[z].total)}</b></td>`).join("")}</tr></table></div></div>
     <div class="card"><h2>⏳ Czekają na akceptację <span class="badge w">${pend.length}</span></h2>
-    ${isKadra() && pend.length ? `<div class="row"><button class="pri" id="accall">✔ Akceptuj wszystkie (${pend.length})</button></div>` : ""}${tbl(pend, "Brak")}</div>
-    <div class="card"><h2>✅ Zaakceptowane <span class="badge ok">${acc.length}</span></h2>${tbl(acc, "Brak", "Zaakceptował")}
+    ${isKadra() && pend.length ? `<div class="row"><button class="pri" id="accall">${mdi("check-circle", 15)} Akceptuj wszystkie (${pend.length})</button></div>` : ""}${tbl(pend, "Brak")}</div>
+    <div class="card"><h2>${mdi("check-circle", 18)} Zaakceptowane <span class="badge ok">${acc.length}</span></h2>${tbl(acc, "Brak", "Zaakceptował")}
     ${rej.length ? `<details><summary class="mut">Odrzucone (${rej.length})</summary>${tbl(rej, "", "Odrzucił")}</details>` : ""}</div>`;
 }
 function bindAlarmDetail() {
@@ -740,8 +753,11 @@ function bindAlarmEdit() {
 }
 
 // ---------- SPRAWNOŚCI: wniosek (harcerz albo jego zastępowy) → kadra przyznaje → punkty dla zastępu
-const SSTAT = { oczekuje: ["w", "⏳ czeka"], przyznana: ["ok", "✅ przyznana"], odrzucona: ["no", "❌ odrzucona"] };
-const gw = n => "★".repeat(Math.max(0, Math.min(3, Number(n) || 0)));
+const SSTAT = { oczekuje: ["w", `${mdi("calendar-clock", 13)} Oczekuje`], przyznana: ["ok", `${mdi("check-circle", 13)} Przyznana`], odrzucona: ["no", `${mdi("close-circle", 13)} Odrzucona`] };
+const gw = n => {
+  const count = Math.max(0, Math.min(3, Number(n) || 0));
+  return Array(count).fill(mdi("star", 15, "gw")).join("");
+};
 const sprPk = n => frac(sprawPts(S.cfg, { gwiazdki: n }));
 const byName = (x, y) => (x.imie || "").localeCompare(y.imie || "", "pl");
 // członkowie zastępu, którzy mają konto w aplikacji (szeregowi i zastępowy)
@@ -760,7 +776,7 @@ function calyList(z, g, nazwa) {
   const earn = c.filter(u => u.st === "z").length, one = sprawPts(S.cfg, { gwiazdki: g });
   return `<p class="mut">Zaznacz przy każdym harcerzu: zdobył(a) sprawność na tej zbiórce, czy już ją miał(a), ale był(a) na zbiórce.</p>
     <div class="clist">${c.map(u => `<div class="crow"><span>${esc(u.imie)}${u.ma ? ` <span class="mut">· ma już w aplikacji</span>` : ""}</span>
-    <span class="seg"><button data-cm="${u.uid}|z" class="${u.st === "z" ? "on" : ""}">✔ zdobył(a)</button><button data-cm="${u.uid}|m" class="${u.st === "m" ? "on" : ""}">już ma</button></span></div>`).join("")}</div>
+    <span class="seg"><button data-cm="${u.uid}|z" class="${u.st === "z" ? "on" : ""}">Zdobył(a)</button><button data-cm="${u.uid}|m" class="${u.st === "m" ? "on" : ""}">już ma</button></span></div>`).join("")}</div>
     <p class="mut">${earn ? `Zdobyło: <b>${earn}</b> os.${c.length - earn ? ` · już miało: ${c.length - earn} os.` : ""} → ${isKadra() ? "zastęp dostanie" : "po zatwierdzeniu przez kadrę zastęp dostanie"} <b>${earn} × 2 × ${frac(one)} = ${frac(earn * 2 * one)} pkt</b> (jakby każdy, kto zdobył, zdobył ją 2 razy).`
       : `<span class="err">Nikt nie jest zaznaczony jako „zdobył(a)”.</span>`}</p>`;
 }
@@ -776,7 +792,7 @@ function bindCaly(px, ctx) {
 }
 const calyName = px => (($("#" + px + "_n")?.value || S.cn[px] || "").trim().replace(/\s+/g, " "));
 const sprPtsTxt = s => s.caly ? `${(s.uczestnicy || []).length} × 2 × ${sprPk(s.gwiazdki)} = ${frac(sprawPts(S.cfg, s))} pkt` : `${frac(sprawPts(S.cfg, s))} pkt`;
-const sprKto = s => s.caly ? `<details><summary>👥 Cały zastęp · ${(s.uczestnicy || []).length} zdobyło${(s.mieli || []).length ? ` · ${s.mieli.length} już miało` : ""}</summary>
+const sprKto = s => s.caly ? `<details><summary>${mdi("account-group", 15)} Cały zastęp · ${(s.uczestnicy || []).length} zdobyło${(s.mieli || []).length ? ` · ${s.mieli.length} już miało` : ""}</summary>
   <div class="mut">Zdobyli: ${names(s.uczestnicy) || "–"}${(s.mieli || []).length ? `<br>Już mieli (byli na zbiórce): ${names(s.mieli)}` : ""}</div></details>` : esc(s.imie);
 const starBtns = (attr, g) => [1, 2, 3].map(n => `<button data-${attr}="${n}" class="${g === n ? "on" : ""}"><span class="gw">${gw(n)}</span> <span class="mut">${sprPk(n)} pkt</span></button>`).join("");
 const namesList = () => `<datalist id="sp_names">${[...new Set(S.sprawnosci.map(x => x.nazwa).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pl")).map(n => `<option value="${esc(n)}">`).join("")}</datalist>`;
@@ -794,12 +810,12 @@ function vSprawnosci() {
   // --- formularz wniosku / przyznania
   let form = "";
   if (S.user && (isKadra() || canMeldowac())) {
-    const title = isKadra() ? "🎖 Przyznaj sprawność" : "🎖 Wniosek o sprawność";
+    const title = isKadra() ? `${mdi("medal", 16)} Przyznaj sprawność` : `${mdi("medal", 16)} Wniosek o sprawność`;
     if (!cq) form = `<div class="card"><h2>${title}</h2><p class="err">Dzisiejsza data nie należy do żadnego kwartału. Kadra musi dodać bieżący kwartał w Ustawieniach.</p></div>`;
     else if (!isKadra() && !ZASTEPY.includes(mine)) form = `<div class="card"><h2>${title}</h2><p class="err">Nie masz przypisanego zastępu — poproś kadrę.</p></div>`;
     else {
       let whoSel = "";
-      const sel = v => S.spU === v ? "selected" : "", caly = z => `<option value="__caly:${z}" ${sel("__caly:" + z)}>👥 Cały zastęp ${z} (zbiórka całego zastępu)</option>`;
+      const sel = v => S.spU === v ? "selected" : "", caly = z => `<option value="__caly:${z}" ${sel("__caly:" + z)}>${mdi("account-group", 15)} Cały zastęp ${z} (zbiórka całego zastępu)</option>`;
       if (isKadra()) {
         const c = S.users.filter(u => ["szeregowy", "zastepowy"].includes(u.rola) && ZASTEPY.includes(u.zastep));
         whoSel = `<select id="sp_u"><option value="">– wybierz harcerza –</option>${ZASTEPY.map(z => { const g = c.filter(u => u.zastep === z).sort(byName);
@@ -815,7 +831,7 @@ function vSprawnosci() {
         ${namesList()}
         <div class="row"><span class="mut">Gwiazdki:</span>${starBtns("g", g)}</div>
         <div id="sp_list" class="za" hidden></div>
-        <div class="row"><button class="pri" id="sp_add">${isKadra() ? "✔ Przyznaj sprawność" : "📨 Wyślij wniosek"}</button></div>
+        <div class="row"><button class="pri" id="sp_add">${isKadra() ? `${mdi("check", 15)} Przyznaj sprawność` : `${mdi("medal", 15)} Wyślij wniosek`}</button></div>
         <p class="mut">${isKadra() ? "Sprawność dodana przez kadrę jest od razu przyznana." : "Punkty dla zastępu naliczają się po zatwierdzeniu przez kadrę."}
         Liczy się do kwartału, w którym złożono wniosek (teraz: <b>${esc(cq.nazwa)}</b>).${r === "zastepowy" ? " Jako zastępowy możesz złożyć wniosek także za harcerza ze swojego zastępu." : ""}</p></div>`;
     }
@@ -825,7 +841,7 @@ function vSprawnosci() {
   const row = (s, o) => `<tr><td><b>${esc(s.nazwa)}</b> <span class="gw">${gw(s.gwiazdki)}</span><div class="mut">${sprPtsTxt(s)}</div></td>
     <td>${sprKto(s)}${s.autor && (s.caly || s.autor !== s.uid) && s.autor !== s.sprawdzil ? `<div class="mut">zgłosił(a) ${esc(s.autorImie || "")}</div>` : ""}</td><td>${esc(s.zastep)}</td>
     <td>${plDay(s.data)}${s.zbiorkaId ? `<div class="mut">na zbiórce</div>` : ""}</td>${o.st ? `<td>${status(s)}${s.status === "odrzucona" ? powodTxt(s.powod) : ""}</td>` : ""}${o.who ? `<td>${ktoKiedy(s.sprawdzilImie, s.sprawdzil, s.sprawdzono)}${s.status === "odrzucona" ? powodTxt(s.powod) : ""}</td>` : ""}
-    <td class="act">${isKadra() && s.status !== "przyznana" ? `<button data-sok="${s.id}">✔ Przyznaj</button>` : ""}${isKadra() && s.status === "oczekuje" ? `<button data-sno="${s.id}" title="Odrzuć">✖</button>` : ""}${isKadra() ? `<button data-sed="${s.id}" title="Edytuj" aria-label="Edytuj">✎</button>` : ""}${!isKadra() && me && s.status === "oczekuje" && (s.uid === me || s.autor === me) ? `<button class="del" data-sdel="${s.id}">Wycofaj</button>` : ""}</td></tr>`;
+    <td class="act">${isKadra() && s.status !== "przyznana" ? `<button data-sok="${s.id}">${mdi("check", 15)} Przyznaj</button>` : ""}${isKadra() && s.status === "oczekuje" ? `<button data-sno="${s.id}" title="Odrzuć">${mdi("close", 15)}</button>` : ""}${isKadra() ? `<button data-sed="${s.id}" title="Edytuj" aria-label="Edytuj">${mdi("pencil", 14)}</button>` : ""}${!isKadra() && me && s.status === "oczekuje" && (s.uid === me || s.autor === me) ? `<button class="del" data-sdel="${s.id}">Wycofaj</button>` : ""}</td></tr>`;
   const table = (list, empty, o = {}) => `<div class="scroll"><table><tr><th>Sprawność</th><th>Kto</th><th>Zastęp</th><th>Wniosek</th>${o.st ? "<th>Status</th>" : ""}${o.who ? `<th>${o.who}</th>` : ""}<th></th></tr>
     ${list.map(s => row(s, o)).join("") || `<tr><td colspan=7 class="mut">${empty}</td></tr>`}</table></div>`;
   const accQ = S.sprawnosci.filter(s => s.status === "przyznana" && inQ(s.data));
@@ -838,17 +854,17 @@ function vSprawnosci() {
     if (!ZASTEPY.includes(mine)) return denied + form;
     const own = S.sprawnosci.filter(s => isMineSpr(s, me) && (s.status === "oczekuje" || inQ(s.data)));
     const accMine = accQ.filter(s => s.zastep === mine);
-    return denied + form + `<div class="card"><h2>📋 Moje sprawności <span class="badge">${own.length}</span></h2>${quarterPicker()}${table(own, "Brak wniosków w tym kwartale", { st: 1 })}</div>
-      <div class="card"><h2>✅ Przyznane w zastępie ${esc(mine)} <span class="badge ok">${accMine.length}</span></h2>${table(accMine, "Brak przyznanych sprawności w tym kwartale", { who: "Przyznał" })}${pktTxt}
-      <div class="row">${odrzBtn("❌ Moje odrzucone prośby")}</div></div>`;
+    return denied + form + `<div class="card"><h2>${mdi("medal", 20)} Moje sprawności <span class="badge">${own.length}</span></h2>${quarterPicker()}${table(own, "Brak wniosków w tym kwartale", { st: 1 })}</div>
+      <div class="card"><h2>${mdi("check-circle", 20)} Przyznane w zastępie ${esc(mine)} <span class="badge ok">${accMine.length}</span></h2>${table(accMine, "Brak przyznanych sprawności w tym kwartale", { who: "Przyznał" })}${pktTxt}
+      <div class="row">${odrzBtn("Moje odrzucone prośby")}</div></div>`;
   }
   const pend = S.sprawnosci.filter(s => s.status === "oczekuje" && (isKadra() || s.zastep === mine));
   const rej = S.sprawnosci.filter(s => s.status === "odrzucona" && inQ(s.data) && (isKadra() || (r === "zastepowy" && s.zastep === mine)));
   return denied + (isKadra() ? `<div class="card">${histBtn()}</div>` : "") + form
-    + (isKadra() || r === "zastepowy" ? `<div class="card"><h2>⏳ Czekają na zatwierdzenie <span class="badge w">${pend.length}</span></h2>${table(pend, "Brak wniosków")}</div>` : "")
-    + `<div class="card"><h2>✅ Przyznane <span class="badge ok">${accQ.length}</span></h2>${quarterPicker()}${summary}${table(accQ, "Brak przyznanych sprawności w tym kwartale", { who: "Przyznał" })}
+    + (isKadra() || r === "zastepowy" ? `<div class="card"><h2>${mdi("calendar-clock", 20)} Czekają na zatwierdzenie <span class="badge w">${pend.length}</span></h2>${table(pend, "Brak wniosków")}</div>` : "")
+    + `<div class="card"><h2>${mdi("check-circle", 20)} Przyznane <span class="badge ok">${accQ.length}</span></h2>${quarterPicker()}${summary}${table(accQ, "Brak przyznanych sprawności w tym kwartale", { who: "Przyznał" })}
       ${rej.length ? `<details><summary class="mut">Odrzucone w tym kwartale (${rej.length})</summary>${table(rej, "", { who: "Odrzucił" })}</details>` : ""}${pktTxt}
-      ${S.user ? `<div class="row">${odrzBtn("❌ Wszystkie odrzucone prośby")}</div>` : ""}</div>`;
+      ${S.user ? `<div class="row">${odrzBtn("Wszystkie odrzucone prośby")}</div>` : ""}</div>`;
 }
 binders.sprawnosci = () => {
   if (S.edit?.kind === "sprawnosc") return bindSprawEdit();
@@ -875,7 +891,7 @@ async function addSpraw(btn) {
     const z = sel.slice(7); if (!kadra && z !== S.profile.zastep) return alert("Możesz zgłosić tylko swój zastęp");
     who = calyTarget(z, g, nazwa);
     if (!who.uczestnicy.length && !who.mieli.length) return alert(`W zastępie ${z} nie ma jeszcze kont harcerzy.`);
-    if (!who.uczestnicy.length) return alert("Zaznacz, kto zdobył sprawność (nikt nie ma „✔ zdobył(a)”).");
+    if (!who.uczestnicy.length) return alert("Zaznacz, kto zdobył sprawność.");
     const dup = S.sprawnosci.find(s => s.caly && s.zastep === z && s.status !== "odrzucona" && Number(s.gwiazdki) === g && (s.nazwa || "").toLowerCase() === nazwa.toLowerCase());
     if (dup && !confirm(`Zastęp ${z} ma już ${dup.status === "przyznana" ? "przyznaną" : "zgłoszoną"} sprawność „${dup.nazwa}” ${gw(g)}. Dodać mimo to?`)) return;
     btn.disabled = true;
@@ -910,8 +926,8 @@ function vSprawEdit() {
    <p class="mut">Data wniosku decyduje, do którego kwartału liczą się punkty.</p>
    ${s.caly ? (() => { const cand = [...(s.uczestnicy || []), ...(s.mieli || [])]; czlonkowie(s.zastep).forEach(u => { if (!cand.some(x => x.uid === u.uid)) cand.push(u); });
      const st = uid => (s.uczestnicy || []).some(u => u.uid === uid) ? "z" : (s.mieli || []).some(u => u.uid === uid) ? "m" : "";
-     return `<h3>👥 Cały zastęp — kto zdobył</h3><div class="clist">${cand.map(u => `<div class="crow"><span>${esc(u.imie)}</span>
-       <select data-ue2="${u.uid}" data-ui="${esc(u.imie)}">${[["z", "✔ zdobył(a)"], ["m", "już ma (był(a))"], ["", "— nie liczy się"]].map(([v, l]) => `<option value="${v}" ${st(u.uid) === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>`).join("")}</div>
+     return `<h3>${mdi("account-group", 15)} Cały zastęp — kto zdobył</h3><div class="clist">${cand.map(u => `<div class="crow"><span>${esc(u.imie)}</span>
+       <select data-ue2="${u.uid}" data-ui="${esc(u.imie)}">${[["z", "Zdobył(a)"], ["m", "już ma (był(a))"], ["", "— nie liczy się"]].map(([v, l]) => `<option value="${v}" ${st(u.uid) === v ? "selected" : ""}>${l}</option>`).join("")}</select></div>`).join("")}</div>
        <p class="mut">Punkty = liczba osób „zdobył(a)” × 2 × punkty za gwiazdki.</p>`; })() : ""}
    <div class="row"><button class="pri" id="sesave">Zapisz</button><button id="secancel">Anuluj</button><button class="del" id="sedel">Usuń</button></div></div>`;
 }
@@ -925,7 +941,7 @@ function bindSprawEdit() {
     const upd = { nazwa, gwiazdki: Number($("#se_g").value), data, status, powod: $("#se_p").value.trim(), zmienil: S.user.uid, zmienilImie: myName() };
     if (s.caly) { const pick = v => [...$$("[data-ue2]")].filter(x => x.value === v).map(x => ({ uid: x.dataset.ue2, imie: x.dataset.ui }));
       upd.uczestnicy = pick("z"); upd.mieli = pick("m");
-      if (!upd.uczestnicy.length) return alert("Co najmniej jedna osoba musi mieć „✔ zdobył(a)”"); }
+      if (!upd.uczestnicy.length) return alert("Co najmniej jedna osoba musi mieć „Zdobył(a)”"); }
     if (status !== s.status && status !== "oczekuje") Object.assign(upd, { sprawdzil: S.user.uid, sprawdzilImie: myName(), sprawdzono: serverTimestamp() });
     try { await updateDoc(doc(db, "sprawnosci", S.edit.id), upd); doneEdit(); } catch (e) { err(e); }
   };
@@ -933,7 +949,7 @@ function bindSprawEdit() {
 
 // ---------- ODRZUCONE PROŚBY: zbiórki zastępu, meldunki z alarmów, sprawności — w jednym miejscu
 // Okienko z powodem odrzucenia (zwraca tekst albo null, gdy anulowano).
-function askReason(title, value = "", ok = "✖ Odrzuć") {
+function askReason(title, value = "", ok = `${mdi("close", 15)} Odrzuć`) {
   return new Promise(res => {
     const m = $("#modal"); m.hidden = false;
     m.innerHTML = `<div class="box"><b>${esc(title)}</b><label>Powód <span class="mut">(opcjonalnie — zobaczy go osoba, która zgłaszała)</span><br>
@@ -945,7 +961,7 @@ function askReason(title, value = "", ok = "✖ Odrzuć") {
   });
 }
 const powodTxt = p => p ? `<div class="powod">Powód: ${esc(p)}</div>` : "";
-const OKAT = { zbiorki: "🔥 Zbiórka zastępu", meldunki: "🚨 Meldunek z alarmu", sprawnosci: "🎖 Sprawność" };
+const OKAT = { zbiorki: `${mdi("fire", 14)} Zbiórka zastępu`, meldunki: `${mdi("shield-alert", 14)} Meldunek z alarmu`, sprawnosci: `${mdi("medal", 14)} Sprawność` };
 // wpisy widoczne dla zalogowanego: kadra — wszystkie; zastępowy — swojego zastępu; szeregowy — własne
 function odrzEntries() {
   const me = S.user?.uid, r = rola(), mine = S.profile?.zastep, out = [];
@@ -969,15 +985,15 @@ function vOdrz() {
   const fk = S.oKat || "", fz = S.oZ || "", fq = S.oQ ?? "", q = fq === "" ? null : S.cfg.kwartaly[+fq];
   const all = odrzEntries(), list = all.filter(e => (!fk || e.kat === fk) && (!fz || e.zastep === fz) && (!q || (e.data >= q.start && e.data <= q.end)));
   const items = list.map(e => `<div class="hl"><div class="hl-top"><span>${plDay(e.data)} · <b>${esc(e.zastep || "–")}</b> · <span class="mut">${OKAT[e.kat]}</span></span>
-    <span class="badge no">❌ odrzucone</span></div>
+    <span class="badge no">${mdi("close-circle", 13)} Odrzucone</span></div>
     <div><b>${esc(e.co)}</b></div><div class="mut">${esc(e.kto)}${e.autorImie ? ` · zgłosił(a) ${esc(e.autorImie)}` : ""} · zgłoszono ${plTs(e.zgl)}</div>
     <div class="mut">Odrzucił(a): ${esc(e.odrz || "kadra")}${e.odrzTs ? " · " + plTs(e.odrzTs) : ""}</div>${powodTxt(e.powod)}
-    ${isKadra() ? `<div class="row"><button data-oacc="${e.kat}|${e.id}">✔ ${e.kat === "sprawnosci" ? "Przyznaj" : e.kat === "zbiorki" ? "Zatwierdź" : "Akceptuj"}</button>
-      <button data-oback="${e.kat}|${e.id}">↩ Do oczekujących</button><button data-opow="${e.kat}|${e.id}">✎ Powód</button>
+    ${isKadra() ? `<div class="row"><button data-oacc="${e.kat}|${e.id}">${mdi("check", 14)} ${e.kat === "sprawnosci" ? "Przyznaj" : e.kat === "zbiorki" ? "Zatwierdź" : "Akceptuj"}</button>
+      <button data-oback="${e.kat}|${e.id}">${mdi("arrow-left", 14)} Do oczekujących</button><button data-opow="${e.kat}|${e.id}">${mdi("pencil", 14)} Powód</button>
       <button class="del" data-odel="${e.kat}|${e.id}">Usuń</button></div>` : ""}</div>`).join("");
   const sel = (id, opts, v) => `<select id="${id}">${opts.map(([k, l]) => `<option value="${k}" ${String(v) === String(k) ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   return `<div class="card"><div class="row"><button id="back">← Wróć</button></div>
-    <h2>❌ Odrzucone prośby <span class="badge">${all.length}</span></h2>
+    <h2>${mdi("close-circle", 15)} Odrzucone prośby <span class="badge">${all.length}</span></h2>
     <p class="mut">${isKadra() ? "Wszystkie odrzucone zgłoszenia zbiórek zastępu, meldunki z alarmów i wnioski o sprawności. Możesz je przywrócić do oczekujących albo od razu zaakceptować."
       : rola() === "zastepowy" ? "Odrzucone zgłoszenia Twojego zastępu." : "Twoje odrzucone zgłoszenia."} Odrzucone nie liczą się do punktacji.</p>
     <div class="row">${sel("o_kat", [["", "Wszystko"], ...Object.entries(OKAT)], fk)}
@@ -1002,13 +1018,13 @@ function bindOdrz() {
     if (!confirm("Usunąć na stałe? Tego nie da się cofnąć.")) return;
     Promise.all([deleteDoc(doc(db, r.col, r.id)), ...(r.kat === "meldunki" ? [deleteDoc(doc(db, "zdjecia", r.id)).catch(() => {})] : [])]).catch(err); });
 }
-const odrzBtn = (label = "❌ Odrzucone prośby") => S.user && S.profile ? `<button id="odrz">${label}</button>` : "";
+const odrzBtn = (label = "Odrzucone prośby") => S.user && S.profile ? `<button id="odrz">${mdi("close-circle", 15)} ${label}</button>` : "";
 const bindOdrzBtn = () => { const b = $("#odrz"); if (b) b.onclick = () => { S.view = { kind: "odrz", from: S.tab === "wyniki" ? null : S.tab }; S.tab = "wyniki"; render(); }; };
 
 // ---------- HISTORIA PUNKTÓW (kadra) + ręczne korekty
 const KAT = { zbiorki: "Zbiórki zastępu", akcje: "Zbiórki drużyny / biwaki", alarmy: "Alarmy", sprawnosci: "Sprawności" };
 const sgn = x => (x > 0 ? "+" : "") + frac(x);
-const histBtn = () => isKadra() ? `<div class="row"><button id="hist">📜 Historia punktów</button></div>` : "";
+const histBtn = () => isKadra() ? `<div class="row"><button id="hist">${mdi("file-document", 16)} Historia punktów</button></div>` : "";
 const bindHistBtn = () => { const b = $("#hist"); if (b) b.onclick = () => { S.view = { kind: "hist" }; render(); }; };
 function histEntries(kat, q = quarter()) {
   const out = [], inQ = d => d >= q.start && d <= q.end;
@@ -1019,7 +1035,7 @@ function histEntries(kat, q = quarter()) {
         const wk = fmtD(monday(parseD(z.data))), key = z.zastep + wk, first = !used.has(key); used.add(key);
         const l = first ? st[z.zastep].log.find(x => x.tydzien === wk && x.pkt > 0) : null;
         out.push({ kat: "zbiorki", data: z.data, zastep: z.zastep, pkt: l ? l.pkt : 0, opis: "Zbiórka zastępu" + (z.opis ? ": " + z.opis : ""),
-          info: l ? `streak ${l.n} 🔥` + (z.zatwierdzilImie ? ` · zatwierdził(a) ${z.zatwierdzilImie}` : "")
+          info: l ? `streak ${l.n}` + (z.zatwierdzilImie ? ` · zatwierdził(a) ${z.zatwierdzilImie}` : "")
                   : first ? "tydzień jeszcze trwa albo poza kwartałem" : "kolejna zbiórka w tym tygodniu — nie liczy się",
           ref: ["zbiorka", z.id] });
       });
@@ -1036,7 +1052,7 @@ function histEntries(kat, q = quarter()) {
     out.push({ kat: "sprawnosci", data: s.data, zastep: s.zastep, pkt: sprawPts(S.cfg, s), opis: `Sprawność${s.caly ? " (cały zastęp)" : ""}: ${s.nazwa} ${gw(s.gwiazdki)}`,
       info: (s.caly ? sprPtsTxt(s) : (s.imie || "")) + (s.sprawdzilImie ? ` · przyznał(a) ${s.sprawdzilImie}` : ""), ref: ["sprawnosc", s.id] }));
   S.korekty.filter(k => (!kat || k.kategoria === kat) && inQ(k.data)).forEach(k => out.push({ kat: k.kategoria, data: k.data, zastep: k.zastep,
-    pkt: Number(k.pkt) || 0, opis: "✏️ Korekta: " + (k.powod || "—"), info: `dodał(a) ${k.autorImie || "kadra"}` + (k.zmienilImie ? ` · zmienił(a) ${k.zmienilImie}` : ""),
+    pkt: Number(k.pkt) || 0, opis: "Korekta: " + (k.powod || "—"), info: `dodał(a) ${k.autorImie || "kadra"}` + (k.zmienilImie ? ` · zmienił(a) ${k.zmienilImie}` : ""),
     ref: ["korekta", k.id], kor: true }));
   return out.sort((a, b) => b.data.localeCompare(a.data));
 }
@@ -1048,10 +1064,10 @@ function vHist(kat) {
   const rows = list.map(e => `<div class="hl ${e.kor ? "kor" : ""}"><div class="hl-top"><span>${plDay(e.data)} · <b>${esc(e.zastep)}</b>${kat ? "" : ` · <span class="mut">${KAT[e.kat]}</span>`}</span>
     <span class="hl-pts ${e.pkt < 0 ? "neg" : ""}">${sgn(e.pkt)}</span></div>
     <div>${esc(e.opis)}</div><div class="mut">${esc(e.info)}</div>
-    <div class="row"><button data-he="${e.ref.join("|")}">✎ Edytuj</button>${e.kor ? `<button class="del" data-hdel="${e.ref[1]}">Usuń</button>` : ""}</div></div>`).join("");
+    <div class="row"><button data-he="${e.ref.join("|")}">${mdi("pencil", 14)} Edytuj</button>${e.kor ? `<button class="del" data-hdel="${e.ref[1]}">Usuń</button>` : ""}</div></div>`).join("");
   const sum = z => all.filter(e => e.zastep === z).reduce((s, e) => s + e.pkt, 0);
   return `<div class="card"><div class="row"><button id="back">← Wróć</button></div>
-    <h2>📜 Historia punktów${kat ? " — " + KAT[kat] : ""}</h2>${quarterPicker()}
+    <h2>${mdi("file-document", 20)} Historia punktów${kat ? " — " + KAT[kat] : ""}</h2>${quarterPicker()}
     <div class="row"><select id="hz"><option value="">Wszystkie zastępy</option>${ZASTEPY.map(z => `<option ${f === z ? "selected" : ""}>${z}</option>`).join("")}</select>
     <button class="pri" id="kadd">+ Korekta punktów</button></div>
     <div class="hlist">${rows || `<p class="mut">Brak punktów w tym kwartale</p>`}</div>
@@ -1163,7 +1179,7 @@ function showInAppBanner({ icon, title, desc, onClick }) {
   toast.className = "notif-toast";
   toast.innerHTML = '<div class="icon">' + icon + '</div>' +
     '<div class="body"><div class="title">' + title + '</div><div class="desc">' + desc + '</div></div>' +
-    '<button class="close" title="Zamknij">✕</button>';
+    '<button class="close" title="Zamknij">' + mdi("close", 18) + '</button>';
   const remove = () => {
     toast.style.opacity = "0";
     toast.style.transform = "translateY(-10px)";
@@ -1189,7 +1205,7 @@ function showInAppBanner({ icon, title, desc, onClick }) {
 function notifyKadraScan(scan) {
   playScanChime();
   if (inApp() && window.KniejaApp?.toast) {
-    window.KniejaApp.toast('🔔 ' + (scan.imie || "Harcerz") + ' (' + (scan.zastep || "brak") + '): zeskanowano ' + (scan.qrNazwa || "kod"));
+    window.KniejaApp.toast((scan.imie || "Harcerz") + ' (' + (scan.zastep || "brak") + '): zeskanowano ' + (scan.qrNazwa || "kod"));
   }
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     try {
@@ -1199,7 +1215,7 @@ function notifyKadraScan(scan) {
     } catch (e) {}
   }
   showInAppBanner({
-    icon: "🔔",
+    icon: "icons/icon-192.png",
     title: "Zeskanowano kod QR!",
     desc: '<b>' + esc(scan.imie || "Harcerz") + '</b> (' + esc(scan.zastep || "brak") + ' · ' + esc(scan.rola || "harcerz") + ') zeskanował(a) kod: <b>' + esc(scan.qrNazwa || "kod") + '</b>',
     onClick: () => {
@@ -1338,14 +1354,14 @@ function printQrCode(qr) {
     '.foot { margin-top: 18px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }' +
     '</style></head><body>' +
     '<div class="sheet">' +
-    '<div class="top">🌲 8 UDH „Knieja” · Punktacja</div>' +
+    '<div class="top">8 UDH „Knieja” · Punktacja</div>' +
     '<h1>' + esc(qr.nazwa) + '</h1>' +
     (qr.opis ? '<div class="desc">' + esc(qr.opis) + '</div>' : '') +
-    (qr.redirectUrl ? '<div style="font-size:13px;color:#2f5d3a;margin-bottom:12px;word-break:break-all;">🎯 Zadanie: ' + esc(qr.redirectUrl) + '</div>' : '') +
+    (qr.redirectUrl ? '<div style="font-size:13px;color:#2f5d3a;margin-bottom:12px;word-break:break-all;">${mdi("flag", 14)} Zadanie: ' + esc(qr.redirectUrl) + '</div>' : '') +
     '<div class="qr-svg">' + svg + '</div>' +
     '<div class="instruct">' +
-    '📷 Zeskanuj ten kod w aplikacji <b>Punktacja zastępów</b>' +
-    '<small>Otwórz aplikację, przejdź do zakładki „📷 Skanuj QR” lub użyj aparatu w telefonie.</small>' +
+    'Zeskanuj ten kod w aplikacji <b>Punktacja zastępów</b>' +
+    '<small>Otwórz aplikację, przejdź do zakładki „Skanuj QR” lub użyj aparatu w telefonie.</small>' +
     '</div>' +
     '<div class="foot">' +
     'Wygenerowano: ' + plTs(qr.utworzono) + ' · Kadra: ' + esc(qr.autorImie || "kadra") +
@@ -1365,7 +1381,7 @@ function printQrCode(qr) {
       m.innerHTML = '<div class="box" style="max-width:500px;text-align:center;">' +
         '<div style="max-height:70vh;overflow-y:auto;padding:10px;">' + html.replace(/<script>[\s\S]*?<\/script>/, '') + '</div>' +
         '<div class="row" style="justify-content:center;margin-top:10px;">' +
-        '<button class="pri" id="btn_modal_print">🖨 Drukuj teraz</button>' +
+        '<button class="pri" id="btn_modal_print">${mdi("printer", 15)} Drukuj teraz</button>' +
         '<button id="btn_modal_close">Zamknij</button>' +
         '</div></div>';
       $("#btn_modal_print").onclick = () => window.print();
@@ -1384,7 +1400,7 @@ function printScansReport(scans, filterQrName) {
   const html = '<!doctype html><html lang="pl"><head><meta charset="utf-8">' +
     '<title>' + esc(title) + '</title>' +
     '<style>' +
-    'body { font-family: Arial, sans-serif; margin: 24px; color: #111; font-size: 14px; }' +
+    'body { font-family: system-ui, -apple-system, sans-serif; margin: 24px; color: #111; font-size: 14px; }' +
     'h1 { font-size: 20px; margin: 0 0 4px; }' +
     'p { color: #555; margin: 0 0 16px; font-size: 13px; }' +
     'table { width: 100%; border-collapse: collapse; margin-top: 10px; }' +
@@ -1604,7 +1620,7 @@ function showScanSuccessModal(qr) {
   if (!m) return;
   const hasTask = !!qr.redirectUrl;
   m.innerHTML = '<div class="box" style="text-align:center;max-width:390px;">' +
-    '<div style="font-size:48px;line-height:1;margin:8px 0;">✅</div>' +
+    '<div style="margin:12px auto;display:flex;justify-content:center;color:var(--ok);">' + mdi("check-circle", 54) + '</div>' +
     '<h2 style="margin:4px 0 8px;">Kod został zeskanowany!</h2>' +
     '<div style="font-size:18px;font-weight:700;color:var(--acc);margin-bottom:6px;">' + esc(qr.nazwa) + '</div>' +
     (qr.opis ? '<div class="mut" style="margin-bottom:12px;">' + esc(qr.opis) + '</div>' : '') +
@@ -1616,10 +1632,10 @@ function showScanSuccessModal(qr) {
     '</div>' +
     (hasTask ? (
       '<div style="background:var(--acc2);border:2px solid var(--acc);border-radius:12px;padding:14px;margin:12px 0;text-align:center;">' +
-        '<div style="font-size:26px;margin-bottom:4px;">🎯</div>' +
+        '<div style="margin:8px auto;display:flex;justify-content:center;color:var(--pri);">' + mdi("flag", 32) + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px;">Do tego kodu przypisano zadanie!</div>' +
         '<div class="mut" style="font-size:12px;margin-bottom:10px;">Obecność została zarejestrowana. Kliknij poniższy przycisk, aby przejść do treści zadania:</div>' +
-        '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="pri big" id="btn_modal_open_task" style="display:inline-block;width:100%;text-decoration:none;padding:12px 16px;font-size:16px;font-weight:800;border-radius:8px;box-sizing:border-box;">🚀 Przejdź do zadania</a>' +
+        '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="pri big" id="btn_modal_open_task" style="display:inline-block;width:100%;text-decoration:none;padding:12px 16px;font-size:16px;font-weight:800;border-radius:8px;box-sizing:border-box;">${mdi("open-in-new", 16)} Przejdź do zadania</a>' +
       '</div>'
     ) : '') +
     '<p class="mut" style="font-size:12px;margin:8px 0 16px;">Kadra otrzymała powiadomienie o Twoim skanie.</p>' +
@@ -1644,7 +1660,7 @@ function showScanSuccessModal(qr) {
 
 function vQr() {
   if (!S.user) {
-    return '<div class="card"><h2>📷 Skaner kodów QR</h2>' +
+    return '<div class="card"><h2>${mdi("qrcode-scan", 20)} Skaner kodów QR</h2>' +
       '<p>Aby zeskanować kod QR i zarejestrować obecność lub wykonanie zadania, musisz być zalogowany.</p>' +
       '<div class="row"><button class="pri" id="qr_go_login">Przejdź do logowania</button></div></div>';
   }
@@ -1662,7 +1678,7 @@ function vQr() {
 
     const deniedNotice = (S.denied?.kodyQr || S.denied?.skanyQr) ?
       `<div class="card" style="border-color:var(--warn);background:rgba(181,83,47,0.1);padding:14px;margin-bottom:14px;">
-        <h3 style="color:var(--warn);margin:0 0 6px;">⚠️ Wymagana aktualizacja reguł w Firebase Console</h3>
+        <h3 style="color:var(--warn);margin:0 0 6px;display:flex;align-items:center;gap:6px;">${mdi("alert-circle", 18)} Wymagana aktualizacja reguł w Firebase Console</h3>
         <p style="margin:0 0 8px;">Baza danych Firebase nie ma jeszcze wgranych reguł dla kodów QR (<code>Missing or insufficient permissions</code>).</p>
         <p style="margin:0;font-size:13px;"><b>Instrukcja dla kadry / administratora:</b><br>
         1. Otwórz konsolę Firebase: <a href="https://console.firebase.google.com/project/kniejapunkty/firestore/rules" target="_blank" style="color:var(--acc);font-weight:bold;">Firebase Console → Firestore Database → Rules</a><br>
@@ -1670,7 +1686,7 @@ function vQr() {
         3. Kliknij <b>Opublikuj (Publish)</b>.</p>
       </div>` : "";
 
-    const createCard = '<div class="card"><h2>✨ Wygeneruj nowy kod QR</h2>' +
+    const createCard = '<div class="card"><h2>${mdi("plus", 20)} Wygeneruj nowy kod QR</h2>' +
       '<div class="row"><input id="qr_new_nazwa" placeholder="Nazwa / etykieta kodu (np. Punkt 1 — Mostek, Zbiórka harcówka)" style="flex:1;min-width:220px"></div>' +
       '<div class="row"><input id="qr_new_opis" placeholder="Krótki opis lub instrukcja dla harcerzy (opcjonalnie)" style="flex:1;min-width:220px"></div>' +
       '<div class="row"><input id="qr_new_redirect" type="url" placeholder="Link do zadania / przekierowanie (opcjonalnie, np. https://forms.gle/...)" style="flex:1;min-width:220px"></div>' +
@@ -1678,15 +1694,15 @@ function vQr() {
       '<div class="row"><button class="pri" id="qr_create_btn">Wygeneruj kod QR</button></div>' +
       '<p class="mut">Wygenerowany kod zostanie oznaczony Twoją etykietą i będzie gotowy do wydrukowania lub pobrania jako obraz. Każde zeskanowanie kodu przez harcerza natychmiast wyśle Ci powiadomienie.</p></div>';
 
-    const notifCard = '<div class="card"><h2>🔔 Powiadomienia o skanach</h2>' +
+    const notifCard = '<div class="card"><h2>${mdi("bell", 20)} Powiadomienia o skanach</h2>' +
       '<div class="row" style="gap:14px;align-items:center;">' +
       '<label class="sw"><input type="checkbox" id="qr_audio_sw" ' + (S.scanAudioOn !== false ? "checked" : "") + '><span></span> Dźwięk powiadomienia</label>' +
-      (typeof Notification !== "undefined" ? (notifGranted ? '<span class="badge ok">✔ Powiadomienia w przeglądarce włączone</span>' : '<button id="btn_req_notif">🔔 Włącz powiadomienia w przeglądarce</button>') : '') +
-      '<button id="btn_test_notif">🔔 Test powiadomienia</button>' +
+      (typeof Notification !== "undefined" ? (notifGranted ? '<span class="badge ok">' + mdi("check", 13) + ' Powiadomienia włączone</span>' : '<button id="btn_req_notif">' + mdi("bell", 15) + ' Włącz powiadomienia w przeglądarce</button>') : '') +
+      '<button id="btn_test_notif">' + mdi("bell", 15) + ' Test powiadomienia</button>' +
       '</div></div>';
 
     const kadraCamCard = '<div class="card"><div class="row" style="justify-content:space-between;align-items:center;">' +
-      '<h2 style="margin:0;">📷 Podręczny skaner aparatu</h2>' +
+      '<h2 style="margin:0;display:flex;align-items:center;gap:8px;">' + mdi("qrcode-scan", 20) + ' Podręczny skaner aparatu</h2>' +
       '<button id="btn_toggle_kadra_cam">' + (S.kadraScannerOpen ? "Ukryj skaner" : "Otwórz skaner") + '</button></div>' +
       (S.kadraScannerOpen ? '<div class="scan-box" style="margin-top:12px;">' +
         '<video id="scan_video" class="scan-video" playsinline muted autoplay></video>' +
@@ -1694,8 +1710,8 @@ function vQr() {
       '</div>' +
       '<div class="row" style="justify-content:center;margin-top:8px;">' +
         '<button class="pri" id="btn_cam_toggle">' + (qrCamStream ? "⏹ Zatrzymaj aparat" : "▶ Włącz aparat") + '</button>' +
-        '<button id="btn_cam_flip">🔄 Zmień aparat</button>' +
-        '<button id="btn_pick_photo">📁 Ze zdjęcia / galerii</button>' +
+        '<button id="btn_cam_flip">${mdi("camera-flip", 15)} Zmień aparat</button>' +
+        '<button id="btn_pick_photo">${mdi("image", 15)} Ze zdjęcia / galerii</button>' +
         '<input type="file" id="scan_file_inp" accept="image/*" capture="environment" hidden>' +
       '</div>' : '') + '</div>';
 
@@ -1711,24 +1727,24 @@ function vQr() {
                 '<span class="badge ok">' + qrScans.length + ' ' + plural(qrScans.length, "skan", "skany", "skanów") + '</span>' +
               '</div>' +
               (qr.opis ? '<div class="mut" style="font-size:13px;margin:4px 0 8px;">' + esc(qr.opis) + '</div>' : '') +
-              (qr.redirectUrl ? '<div style="margin:4px 0 8px;font-size:12px;word-break:break-all;"><span class="badge ok">🎯 Zadanie</span> <a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600;">' + esc(qr.redirectUrl) + '</a></div>' : '') +
+              (qr.redirectUrl ? '<div style="margin:4px 0 8px;font-size:12px;word-break:break-all;"><span class="badge ok">${mdi("flag", 14)} Zadanie</span> <a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600;">' + esc(qr.redirectUrl) + '</a></div>' : '') +
               '<div class="qr-preview">' + renderQrSvg(getQrPayload(qr.id), 4, 2) + '</div>' +
               '<div class="mut" style="font-size:11px;margin-top:6px;">Utworzył(a): ' + esc(qr.autorImie || "kadra") + ' · ' + plTs(qr.utworzono) + '</div>' +
             '</div>' +
             '<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:6px;">' +
               '<div class="row">' +
-                '<button class="pri" data-print-qr="' + esc(qr.id) + '">🖨 Drukuj</button>' +
-                '<button data-dl-qr="' + esc(qr.id) + '">💾 Pobierz PNG</button>' +
-                '<button data-copy-qr="' + esc(qr.id) + '">📋 Link</button>' +
-                (qr.redirectUrl ? '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="button" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;font-size:13px;">🔗 Zadanie</a>' : '') +
-                '<button data-toggle-qr="' + esc(qr.id) + '">' + (isExp ? "▲ Ukryj skany" : "▼ Skany (" + qrScans.length + ")") + '</button>' +
+                '<button class="pri" data-print-qr="' + esc(qr.id) + '">${mdi("printer", 15)} Drukuj</button>' +
+                '<button data-dl-qr="' + esc(qr.id) + '">${mdi("download", 15)} Pobierz PNG</button>' +
+                '<button data-copy-qr="' + esc(qr.id) + '">${mdi("content-copy", 15)} Link</button>' +
+                (qr.redirectUrl ? '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="button" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;font-size:13px;">${mdi("open-in-new", 14)} Zadanie</a>' : '') +
+                '<button data-toggle-qr="' + esc(qr.id) + '">' + (isExp ? (mdi("chevron-up", 15) + " Ukryj skany") : (mdi("chevron-down", 15) + " Skany (" + qrScans.length + ")")) + '</button>' +
                 '<button class="del" data-del-qr="' + esc(qr.id) + '">Usuń</button>' +
               '</div>' +
               (isExp ? '<div style="background:var(--acc2);border-radius:8px;padding:8px;margin-top:6px;max-height:220px;overflow-y:auto;font-size:12px;">' +
                 '<b>Historia skanów dla „' + esc(qr.nazwa) + '”:</b>' +
                 (qrScans.length === 0 ? '<div class="mut" style="margin-top:4px;">Ten kod nie został jeszcze zeskanowany.</div>' :
                   '<table style="margin-top:6px;font-size:12px;"><tr><th>Kto</th><th>Zastęp</th><th>Czas</th><th></th></tr>' +
-                  qrScans.map(s => '<tr><td><b>' + esc(s.imie) + '</b></td><td>' + esc(s.zastep) + '</td><td>' + plTs(s.czas) + '</td><td class="act"><button class="del" data-del-scan="' + s.id + '">✕</button></td></tr>').join("") +
+                  qrScans.map(s => '<tr><td><b>' + esc(s.imie) + '</b></td><td>' + esc(s.zastep) + '</td><td>' + plTs(s.czas) + '</td><td class="act"><button class="del" data-del-scan="' + s.id + '" title="Usuń">' + mdi("close", 14) + '</button></td></tr>').join("") +
                   '</table>') +
               '</div>' : '') +
             '</div>' +
@@ -1754,22 +1770,22 @@ function vQr() {
           '<td>' + esc(s.imie) + '</td>' +
           '<td>' + esc(s.zastep) + '</td>' +
           '<td class="mut">' + esc(s.rola) + '</td>' +
-          '<td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" class="mut" style="font-size:11px;color:var(--acc);">🎯 Zadanie: ' + esc(s.redirectUrl.length > 30 ? s.redirectUrl.slice(0, 28) + '…' : s.redirectUrl) + '</a>' : '') + '</td>' +
+          '<td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" class="mut" style="font-size:11px;color:var(--acc);">${mdi("flag", 14)} Zadanie: ' + esc(s.redirectUrl.length > 30 ? s.redirectUrl.slice(0, 28) + '…' : s.redirectUrl) + '</a>' : '') + '</td>' +
           '<td class="act"><button class="del" data-del-scan="' + s.id + '" title="Usuń wpis skanu">Usuń</button></td>' +
         '</tr>').join("") +
       '</table></div>';
 
     const logCard = '<div class="card">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
-        '<h2 style="margin:0;">📋 Rejestr zeskanowanych kodów <span class="badge ok">' + filteredScans.length + '</span></h2>' +
-        '<button id="btn_print_scans_rep">🖨 Drukuj raport skanów</button>' +
+        '<h2 style="margin:0;display:flex;align-items:center;gap:8px;">' + mdi("file-document", 20) + ' Rejestr zeskanowanych kodów <span class="badge ok">' + filteredScans.length + '</span></h2>' +
+        '<button id="btn_print_scans_rep">${mdi("printer", 15)} Drukuj raport skanów</button>' +
       '</div>' +
       '<div class="row" style="margin:10px 0 12px;gap:8px;align-items:center;">' +
         '<span class="mut">Filtruj kod:</span>' +
         '<select id="filter_qr_code"><option value="">Wszystkie kody</option>' + qrOptions + '</select>' +
         '<span class="mut">Zastęp:</span>' +
         '<select id="filter_qr_zastep"><option value="">Wszystkie zastępy</option>' + zastepOptions + '</select>' +
-        ((S.qrFilterCode || S.qrFilterZastep) ? '<button id="btn_clear_qr_filters">✕ Wyczyść filtry</button>' : '') +
+        ((S.qrFilterCode || S.qrFilterZastep) ? '<button id="btn_clear_qr_filters">${mdi("close", 14)} Wyczyść filtry</button>' : '') +
       '</div>' +
       scansTable +
     '</div>';
@@ -1778,7 +1794,7 @@ function vQr() {
   }
 
   const myScans = S.mySkanyQr || [];
-  return '<div class="card"><h2>📷 Skaner kodów QR</h2>' +
+  return '<div class="card"><h2>${mdi("qrcode-scan", 20)} Skaner kodów QR</h2>' +
     '<div class="scan-box">' +
       '<video id="scan_video" class="scan-video" playsinline muted autoplay></video>' +
       '<div class="scan-reticle"><div class="scan-laser"></div></div>' +
@@ -1787,17 +1803,17 @@ function vQr() {
       '<button class="pri big" id="btn_cam_toggle" style="flex:1;max-width:300px;">' + (qrCamStream ? "⏹ Zatrzymaj aparat" : "▶ Uruchom aparat i skanuj") + '</button>' +
     '</div>' +
     '<div class="row" style="justify-content:center;gap:8px;">' +
-      '<button id="btn_cam_flip">🔄 Zmień aparat</button>' +
-      '<button id="btn_pick_photo">📁 Zrób zdjęcie / Wybierz plik</button>' +
+      '<button id="btn_cam_flip">${mdi("camera-flip", 15)} Zmień aparat</button>' +
+      '<button id="btn_pick_photo">${mdi("image", 15)} Zrób zdjęcie / Wybierz plik</button>' +
       '<input type="file" id="scan_file_inp" accept="image/*" capture="environment" hidden>' +
     '</div>' +
     '<p class="mut" style="text-align:center;margin-top:12px;">Skieruj aparat na wydrukowany kod QR przygotowany przez kadrę.<br>Po wykryciu kodu Twój skan zostanie natychmiast zarejestrowany, a kadra otrzyma powiadomienie.</p>' +
   '</div>' +
   '<div class="card">' +
-    '<h2>📋 Twoje zeskanowane kody <span class="badge ok">' + myScans.length + '</span></h2>' +
+    '<h2>${mdi("qrcode-scan", 20)} Twoje zeskanowane kody <span class="badge ok">' + myScans.length + '</span></h2>' +
     (myScans.length === 0 ? '<p class="mut">Nie masz jeszcze żadnych zeskanowanych kodów.</p>' :
       '<div class="scroll"><table><tr><th>Data i czas</th><th>Kod QR</th><th>Status</th></tr>' +
-      myScans.map(s => '<tr><td><b>' + plTs(s.czas) + '</b></td><td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" style="font-size:12px;color:var(--acc);font-weight:600;">🎯 Otwórz zadanie</a>' : '') + '</td><td><span class="badge ok">✔ Zarejestrowano</span></td></tr>').join("") +
+      myScans.map(s => '<tr><td><b>' + plTs(s.czas) + '</b></td><td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" style="font-size:12px;color:var(--acc);font-weight:600;">' + mdi("open-in-new", 14) + ' Otwórz zadanie</a>' : '') + '</td><td><span class="badge ok">' + mdi("check", 13) + ' Zarejestrowano</span></td></tr>').join("") +
       '</table></div>') +
   '</div>';
 }
@@ -2023,7 +2039,7 @@ document.addEventListener("click", async (e) => {
 
 
 // ---------- JA (każdy zalogowany)
-const who = r => `<span class="perm">${{ kadra: "🔒 zmienia kadra", admin: "🔒 zmienia administrator", ty: "✏️ zmieniasz Ty" }[r]}</span>`;
+const who = r => `<span class="perm">${{ kadra: `${mdi("lock", 12)} zmienia kadra`, admin: `${mdi("shield-check", 12)} zmienia administrator`, ty: `${mdi("pencil", 12)} zmieniasz Ty` }[r] || ""}</span>`;
 const field = (label, value, r) => `<div class="fld"><div class="mut">${label}</div><div class="fv">${value}</div>${r ? who(r) : ""}</div>`;
 const tile = (label, value, sub = "") => `<div class="tile"><div class="mut">${label}</div><b>${value}</b>${sub ? `<div class="mut">${sub}</div>` : ""}</div>`;
 function vJa() {
@@ -2049,7 +2065,7 @@ function vJa() {
       ${tile("Miejsce w rankingu", `${place}. <span class="mut">/ ${ZASTEPY.length}</span>`)}
       ${tile("Punkty zastępu", frac(t[z].suma))}
       ${tile("Zatwierdzone zbiórki", zb.length)}
-      ${tile("Streak", n ? "🔥 " + n : "0", n ? `${n} ${plural(n, "tydzień", "tygodnie", "tygodni")} z rzędu` : "")}
+      ${tile("Streak", n ? `${mdi("fire", 16)} ${n}` : "0", n ? `${n} ${plural(n, "tydzień", "tygodnie", "tygodni")} z rzędu` : "")}
       ${tile("Następna zbiórka", "+" + frac(next) + " pkt", doneThisWeek ? "w przyszłym tygodniu" : "w tym tygodniu" + (pendThisWeek ? " (zgłoszona, czeka na zatwierdzenie)" : ""))}
       ${tile("Wykonane alarmy", alDone, `${meldOk} ${plural(meldOk, "zaakceptowany meldunek", "zaakceptowane meldunki", "zaakceptowanych meldunków")}`)}
       ${tile("Sprawności", S.sprawnosci.filter(s => s.zastep === z && s.status === "przyznana" && inQq(s.data)).length, `przyznane · ${frac(t[z].sprawnosci)} pkt`)}
@@ -2060,7 +2076,7 @@ function vJa() {
     ${field("Login", esc(p.login || loginOf(S.user.email)), "admin")}
     ${field("Funkcja", ROLE_PL[p.rola] || esc(p.rola || "–"), "kadra")}
     ${field("Zastęp", ZASTEPY.includes(z) ? z : "–", "kadra")}
-    ${["kadra", "admin"].includes(p.rola) ? field("Administrator", isAdmin() ? "tak 🛡" : "nie", "admin") : ""}
+    ${["kadra", "admin"].includes(p.rola) ? field("Administrator", isAdmin() ? `tak ${mdi("shield-check", 14)}` : "nie", "admin") : ""}
     <div class="fld"><div class="mut">Hasło</div>${who("ty")}
       <div class="row"><input id="pw_cur" type="password" placeholder="Obecne hasło" autocomplete="current-password"></div>
       <div class="row"><input id="pw_new" type="password" placeholder="Nowe hasło (min. 6 znaków)" autocomplete="new-password"></div>
@@ -2077,14 +2093,14 @@ function vJa() {
       ${canMeldowac() || mySp.length ? tile("Twoje sprawności", mySp.filter(s => s.status === "przyznana").length, `przyznane w kwartale · ${mySp.filter(s => s.status === "oczekuje").length} czeka`) : ""}
       ${rola() === "zastepowy" || myZb.length ? tile("Zgłoszone przez Ciebie zbiórki", myZb.filter(x => x.status === "zatwierdzona").length, `zatwierdzone · ${myZb.filter(x => x.status === "oczekuje").length} czeka`) : ""}
     </div>
-    ${!inApp() && /Android/i.test(navigator.userAgent) ? `<div class="row"><a class="btn pri" href="https://github.com/mikoorty/Knieja-punkty/releases/latest/download/Kniejapunkty.apk">📱 Pobierz aplikację na Androida (APK)</a></div>
+    ${!inApp() && /Android/i.test(navigator.userAgent) ? `<div class="row"><a class="btn pri" href="https://github.com/mikoorty/Knieja-punkty/releases/latest/download/Kniejapunkty.apk">${mdi("download", 16)} Pobierz aplikację na Androida (APK)</a></div>
       <p class="mut">Po pobraniu otwórz plik i zezwól na instalację z tego źródła. Aplikacja otwiera Kniejapunkty w pełnym oknie, z logo na ekranie głównym.</p>` : ""}
-    ${(n => n ? `<div class="row"><button id="odrz">❌ Odrzucone prośby <span class="badge no">${n}</span></button></div>` : "")(odrzEntries().length)}
+    ${(n => n ? `<div class="row"><button id="odrz">${mdi("close-circle", 15)} Odrzucone prośby <span class="badge no">${n}</span></button></div>` : "")(odrzEntries().length)}
     <p class="mut">Adres aplikacji: <b>mikoorty.github.io/Knieja-punkty</b> · wersja ${BUILD}${inApp() ? " · aplikacja Android" : ""}</p>
     <div class="row"><button id="jaout">Wyloguj się</button></div>`;
-  return `<div class="card"><h2>🏕 Zastęp${ZASTEPY.includes(z) ? ": " + z : ""}</h2><p class="mut">Kwartał: ${esc(q.nazwa)} (${plDay(q.start)} – ${plDay(q.end)})</p>${zast}</div>
-    <div class="card"><h2>👤 Dane użytkownika</h2>${dane}</div>
-    <div class="card"><h2>📌 Inne</h2>${inne}</div>`;
+  return `<div class="card"><h2>${mdi("tent", 20)} Zastęp${ZASTEPY.includes(z) ? ": " + z : ""}</h2><p class="mut">Kwartał: ${esc(q.nazwa)} (${plDay(q.start)} – ${plDay(q.end)})</p>${zast}</div>
+    <div class="card"><h2>${mdi("account-circle", 20)} Dane użytkownika</h2>${dane}</div>
+    <div class="card"><h2>${mdi("pine-tree", 20)} Informacje</h2>${inne}</div>`;
 }
 binders.ja = () => {
   bindOdrzBtn();
@@ -2182,7 +2198,7 @@ function chartCard() {
   const table = !cp ? "" : `<details><summary class="mut">Pokaż dane w tabeli (stan na koniec każdego tygodnia)</summary><div class="scroll"><table>
     <tr><th>Do dnia</th>${ZASTEPY.map(z => `<th class="n">${z}</th>`).join("")}</tr>
     ${cp.pts.slice(1).map(p => `<tr><td>${plDay(p.d)}</td>${p.v.map(v => `<td class="n">${frac(v)}</td>`).join("")}</tr>`).join("")}</table></div></details>`;
-  return `<div class="card viz"><h2>📈 Punkty zastępów w kwartale</h2>
+  return `<div class="card viz"><h2>${mdi("chart-line", 20)} Punkty zastępów w kwartale</h2>
     <div class="legend">${legend}</div><div id="chwrap"><div id="chsvgbox"></div><div id="chtip" class="tip" hidden></div></div>
     <p class="mut">Punkty narastająco, stan na koniec każdego tygodnia. Dotknij wykresu, żeby zobaczyć wyniki z danego tygodnia.</p>${table}</div>`;
 }
@@ -2256,15 +2272,15 @@ function vArch() {
   const known = S.cfg.kwartaly.map(q => ({ q, a: S.archiwum.find(a => a.id === qKey(q)) }));
   const extra = S.archiwum.filter(a => !S.cfg.kwartaly.some(q => qKey(q) === a.id));
   const card = a => `<div class="card"><h3 style="margin-top:0">${esc(a.nazwa)} <span class="mut">${plDay(a.start)} – ${plDay(a.end)}</span></h3>
-    <p class="mut">${a.koncowy ? "Wyniki końcowe" : "⚠ Stan na dzień zapisu (kwartał jeszcze trwał)"} · zapisano ${plTs(a.zapisano)} · ${esc(a.zapisalImie || "")}</p>
+    <p class="mut">${a.koncowy ? "Wyniki końcowe" : `${mdi("alert-circle", 14)} Stan na dzień zapisu (kwartał jeszcze trwał)`} · zapisano ${plTs(a.zapisano)} · ${esc(a.zapisalImie || "")}</p>
     <div class="scroll"><table><tr><th>#</th><th>Zastęp</th><th class="n">Razem</th><th class="n">Zbiórki</th><th class="n">Drużyna</th><th class="n">Alarmy</th><th class="n">Sprawności</th></tr>
     ${(a.ranking || []).map(r => `<tr><td>${r.miejsce}.</td><td><b>${esc(r.zastep)}</b></td><td class="n"><b>${frac(r.suma)}</b></td><td class="n">${frac(r.zbiorki)}</td><td class="n">${frac(r.akcje)}</td><td class="n">${frac(r.alarmy)}</td><td class="n">${r.sprawnosci == null ? "–" : frac(r.sprawnosci)}</td></tr>`).join("")}</table></div>
     <details><summary class="mut">Historia punktów (${(a.historia || []).length} wpisów)</summary><div class="hlist">${(a.historia || []).map(e => `<div class="hl"><div class="hl-top"><span>${plDay(e.data)} · <b>${esc(e.zastep)}</b> · <span class="mut">${KAT[e.kat] || ""}</span></span><span class="hl-pts ${e.pkt < 0 ? "neg" : ""}">${sgn(e.pkt)}</span></div><div>${esc(e.opis)}</div><div class="mut">${esc(e.info)}</div></div>`).join("")}</div></details>
-    <div class="row"><button class="pri" data-xlsx="${a.id}">⬇ Excel</button><button data-print="${a.id}">🖨 Drukuj / PDF</button>
-    <button data-resave="${a.id}">🔄 Zapisz ponownie</button>${isAdmin() ? `<button class="del" data-adel="${a.id}">Usuń</button>` : ""}</div></div>`;
-  return `<div class="card"><div class="row"><button id="back">← Ranking</button></div><h2>🗄 Archiwum kwartałów</h2>
+    <div class="row"><button class="pri" data-xlsx="${a.id}">${mdi("download", 15)} Excel</button><button data-print="${a.id}">${mdi("printer", 15)} Drukuj / PDF</button>
+    <button data-resave="${a.id}">${mdi("refresh", 14)} Zapisz ponownie</button>${isAdmin() ? `<button class="del" data-adel="${a.id}">Usuń</button>` : ""}</div></div>`;
+  return `<div class="card"><div class="row"><button id="back">${mdi("arrow-left", 15)} Ranking</button></div><h2>${mdi("package-variant", 20)} Archiwum kwartałów</h2>
     <p class="mut">Po zakończeniu kwartału jego wyniki zapisują się tu automatycznie (przy pierwszym otwarciu aplikacji przez kogoś z kadry). Zapis to „zdjęcie” wyników — późniejsze zmiany danych go nie zmieniają, chyba że klikniesz „Zapisz ponownie”.</p>
-    <div class="row"><select id="aq">${S.cfg.kwartaly.map((q, i) => `<option value="${i}">${esc(q.nazwa)}</option>`).join("")}</select><button id="asave">💾 Zapisz teraz wybrany kwartał</button></div></div>
+    <div class="row"><select id="aq">${S.cfg.kwartaly.map((q, i) => `<option value="${i}">${esc(q.nazwa)}</option>`).join("")}</select><button id="asave">${mdi("download", 14)} Zapisz teraz wybrany kwartał</button></div></div>
     ${known.filter(x => x.a).map(x => card(x.a)).join("")}${extra.map(card).join("")}
     ${!S.archiwum.length ? `<div class="card"><p class="mut">Archiwum jest puste — pierwszy wpis pojawi się po zakończeniu kwartału.</p></div>` : ""}`;
 }
@@ -2301,7 +2317,7 @@ async function archXlsx(a) {
     ["Historia", [["Data", "Kategoria", "Zastęp", "Punkty", "Za co", "Szczegóły"],
       ...(a.historia || []).slice().sort((x, y) => x.data.localeCompare(y.data)).map(e => [plDay(e.data), KAT[e.kat] || e.kat, e.zastep, e.pkt, e.opis, e.info])], [12, 24, 14, 9, 40, 50]],
     ["Informacje", [["Pole", "Wartość"], ["Kwartał", a.nazwa], ["Od", plDay(a.start)], ["Do", plDay(a.end)], ["Status", a.koncowy ? "wyniki końcowe" : "stan na dzień zapisu"],
-      ["Zapisano", plTs(a.zapisano)], ["Zapisał(a)", a.zapisalImie || ""], ["Pkt bazowe za zbiórkę", a.punktacja?.base], ["Przyrost streaka (pkt za kolejną zbiórkę)", a.punktacja?.przyrost ?? (a.punktacja?.base * a.punktacja?.step)], ["Pkt za mundur", a.punktacja?.mundur], ["Pkt za sprawność 1★ / 2★ / 3★", (a.punktacja?.sprawPkt || []).join(" / ")]], [24, 30]]];
+      ["Zapisano", plTs(a.zapisano)], ["Zapisał(a)", a.zapisalImie || ""], ["Pkt bazowe za zbiórkę", a.punktacja?.base], ["Przyrost streaka (pkt za kolejną zbiórkę)", a.punktacja?.przyrost ?? (a.punktacja?.base * a.punktacja?.step)], ["Pkt za mundur", a.punktacja?.mundur], ["Pkt za sprawność 1 / 2 / 3 gwiazdki", (a.punktacja?.sprawPkt || []).join(" / ")]], [24, 30]]];
   zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`);
   zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
   zip.file("xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map(([n], i) => `<sheet name="${xe(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>`);
@@ -2334,13 +2350,13 @@ function archHtml(a) {
 const APP_URL = "https://mikoorty.github.io/Knieja-punkty/";
 const APK_URL = "https://github.com/mikoorty/Knieja-punkty/releases/latest/download/Kniejapunkty.apk";
 const linkRow = (id, url) => `<div class="row"><input id="${id}" value="${url}" readonly style="flex:1;min-width:0" onfocus="this.select()">
-  <button class="pri" data-copy="${id}">📋 Kopiuj</button>${navigator.share ? `<button data-share="${id}">📤 Udostępnij</button>` : ""}</div>`;
+  <button class="pri" data-copy="${id}">${mdi("content-copy", 15)} Kopiuj</button>${navigator.share ? `<button data-share="${id}">${mdi("share-variant", 15)} Udostępnij</button>` : ""}</div>`;
 async function copyText(text, btn) {
   if (inApp() && window.KniejaApp?.copyToClipboard) {
     window.KniejaApp.copyToClipboard(text);
     if (btn) {
       const old = btn.textContent;
-      btn.textContent = "✔ Skopiowano";
+      btn.innerHTML = `${mdi("check", 14)} Skopiowano`;
       setTimeout(() => btn.textContent = old, 2000);
     }
     return;
@@ -2372,33 +2388,33 @@ async function copyText(text, btn) {
   }
   if (btn) {
     const old = btn.textContent;
-    btn.textContent = "✔ Skopiowano";
+    btn.innerHTML = `${mdi("check", 14)} Skopiowano`;
     setTimeout(() => btn.textContent = old, 2000);
   }
 }
 function vUstawienia() {
   const c = S.cfg, list = (k, n) => `<input data-c="${k}" value="${(c[k] || []).join(", ")}" style="width:100%" title="${n}">`;
-  return `<div class="card"><h2>🔗 Link do aplikacji</h2>
+  return `<div class="card"><h2>${mdi("open-in-new", 20)} Link do aplikacji</h2>
    <p class="mut">Wyślij go szeregowym, zastępowym i kadrze. Działa na każdym telefonie i komputerze.</p>
    ${linkRow("lnk_web", APP_URL)}
    <h3>Aplikacja na Androida (APK)</h3>
    ${linkRow("lnk_apk", APK_URL)}
-   ${inApp() ? `<div class="row" style="margin-top:8px;"><button id="btn_check_apk_update" class="pri">🔄 Sprawdź aktualizacje aplikacji</button></div>` : ""}
+   ${inApp() ? `<div class="row" style="margin-top:8px;"><button id="btn_check_apk_update" class="pri">${mdi("refresh", 16)} Sprawdź aktualizacje aplikacji</button></div>` : ""}
    <p class="mut">Aplikacja na Androida automatycznie sprawdza nowe wersje w tle i powiadamia o nich przy uruchomieniu.</p></div>
    <div class="card"><h2>Ustawienia punktacji</h2>
    <div class="row">Pkt bazowe za zbiórkę zastępu <input type="number" data-c="base" value="${c.base}"></div>
    <div class="row">Przyrost streaka: + <input type="number" step="0.5" inputmode="decimal" data-c="przyrost" value="${streakInc(c)}"> pkt za każdą kolejną zbiórkę</div>
    <p class="mut" id="sex">${streakExample(c)}</p>
    <div class="row">Pkt za mundur na osobę <input type="number" data-c="mundur" value="${c.mundur}"></div>
-   <h3>Sprawność — punkty za 1★, 2★, 3★</h3>${list("sprawPkt")}
+   <h3>Sprawność — punkty za 1, 2, 3 gwiazdki</h3>${list("sprawPkt")}
    <h3>Gra duża (1.–6. miejsce)</h3>${list("duze")}<h3>Gra mała</h3>${list("male")}
    <h3>Alarm — punkty za osobę w progach</h3>${list("alarmProgi")}<h3>Alarm — bonus za kolejność zastępów</h3>${list("alarmBonus")}
    <h3>Alarm — domyślne progi czasowe (min)</h3>${list("alarmProgiMin")}
    <h3>Liczebność zastępów (h)</h3><div class="row">${ZASTEPY.map(z => `<label>${z} <input type="number" data-l="${z}" value="${c.liczebnosc[z] ?? ""}"></label>`).join("")}</div>
-   <div class="row"><button id="lacc">👥 Ustaw według liczby kont</button></div>
+   <div class="row"><button id="lacc">${mdi("account-group", 15)} Ustaw według liczby kont</button></div>
    <p class="mut">Liczba kont w aplikacji (szeregowi i zastępowi): ${ZASTEPY.map(z => `${z} <b>${kontaZ(z)}</b>`).join(" · ")}. Zastęp bez kont zachowuje obecną liczebność. Harcerze bez konta nie są liczeni.</p>
    <h3>Kwartały</h3><div id="kw">${c.kwartaly.map((q, i) => `<div class="row"><input data-k="${i}.nazwa" value="${esc(q.nazwa)}">
-     <input type="date" data-k="${i}.start" value="${q.start}"><input type="date" data-k="${i}.end" value="${q.end}"><button class="del" data-kdel="${i}">✖</button></div>`).join("")}</div>
+     <input type="date" data-k="${i}.start" value="${q.start}"><input type="date" data-k="${i}.end" value="${q.end}"><button class="del" data-kdel="${i}" title="Usuń">${mdi("close", 14)}</button></div>`).join("")}</div>
    <button id="kadd">+ Kwartał</button>
    <div class="row" style="margin-top:14px"><button class="pri" id="csave">Zapisz ustawienia</button></div>
    <p class="mut">Zmiana ustawień przelicza wszystkie wyniki od nowa. Streak zeruje się na początku każdego kwartału.</p></div>
@@ -2501,7 +2517,7 @@ function prepImport(rows) {
 }
 function vImport() {
   const v = S.view;
-  if (!v.rows) return `<div class="card"><div class="row"><button id="back">← Konta</button></div><h2>📥 Dodaj wiele kont</h2>
+  if (!v.rows) return `<div class="card"><div class="row"><button id="back">${mdi("arrow-left", 15)} Konta</button></div><h2>${mdi("download", 15)} Dodaj wiele kont</h2>
     <p class="mut">Wklej listę: najpierw wiersz z nazwą zastępu, pod nim osoby — każda w osobnym wierszu: <b>Imię Nazwisko; login; hasło</b>.
     Login i hasło możesz pominąć (zostaną wygenerowane). Dopiski w nawiasach, np. stopnie, są pomijane. Wszyscy dostają funkcję „szeregowy” — zastępowych zmienisz potem na liście kont.</p>
     <textarea id="imp_t" rows="14" style="width:100%" placeholder="Lisy&#10;Jan Kowalski; jan.kowalski; haslo123&#10;Adam Nowak&#10;&#10;Łosie&#10;…"></textarea>
@@ -2511,12 +2527,12 @@ function vImport() {
     `<div class="crow"><label class="chk" style="flex:1"><input type="checkbox" data-it="${i}" ${r.take ? "checked" : ""}> <span><b>${esc(r.imie)}</b><br>
       <span class="mut">${r.ex ? `ma już konto: ${esc(r.ex.login)}${r.ex.zastep !== z ? ` · <span class="err">w aplikacji: ${esc(r.ex.zastep || "bez zastępu")}</span>` : ""}`
         : `login: ${esc(r.login)}${r.zm ? " (zajęty — dodano numer)" : ""} · hasło: ${esc(r.haslo)}${r.nowe ? " (wygenerowane)" : ""}`}</span></span></label></div>`).join("")}</div>`).join("");
-  return `<div class="card"><div class="row"><button id="back">← Konta</button></div><h2>📥 Dodaj wiele kont — sprawdzenie</h2>
+  return `<div class="card"><div class="row"><button id="back">${mdi("arrow-left", 15)} Konta</button></div><h2>${mdi("download", 15)} Dodaj wiele kont — sprawdzenie</h2>
     <p class="mut">Zaznaczone osoby dostaną nowe konta. Osoby, które mają już konto (to samo imię i nazwisko), są odznaczone.</p>
     ${v.bad?.length ? `<p class="err">Pominięto wiersze bez zastępu nad nimi: ${v.bad.map(esc).join(" · ")}</p>` : ""}
     ${rows}
     <div class="row"><label class="chk"><input type="checkbox" id="imp_l"> Ustaw liczebność zastępów według tej listy (${ZASTEPY.filter(z => cnt[z]).map(z => `${z} ${cnt[z]}`).join(", ")})</label></div>
-    <div class="row"><button class="pri" id="imp_go" ${take ? "" : "disabled"}>Utwórz konta (${take})</button><button id="imp_edit">← Popraw listę</button></div>
+    <div class="row"><button class="pri" id="imp_go" ${take ? "" : "disabled"}>Utwórz konta (${take})</button><button id="imp_edit">${mdi("arrow-left", 15)} Popraw listę</button></div>
     <p class="mut" id="imp_log"></p></div>`;
 }
 function bindImport() {
@@ -2556,21 +2572,21 @@ async function runImport(btn) {
 // --- pakiety: loginy i hasła zastępami, do skopiowania i wysłania
 function pakietTxt(z, list) {
   return `Kniejapunkty — konta zastępu ${z}\n${APP_URL}\n\n` + list.map(u => `${u.imie || loginOfUser(u)}\n  login: ${loginOfUser(u)}\n  hasło: ${S.secrets?.[u.id] || "(nieznane — administrator może ustawić nowe)"}`).join("\n\n")
-    + `\n\nHasło każdy może zmienić sam w zakładce „👤 Ja”.`;
+    + `\n\nHasło każdy może zmienić sam w zakładce „Profil”.`;
 }
 function vPakiety() {
   if (!isAdmin()) { S.view = null; return vUsers(); }
   const v = S.view, nowe = new Set(v.nowe || []), only = v.tylkoNowe && nowe.size;
   const groups = ZASTEPY.map(z => ({ z, list: sortUsers(S.users.filter(u => u.zastep === z && (!only || nowe.has(u.id))), "funkcja") })).filter(g => g.list.length);
-  return `<div class="card"><div class="row"><button id="back">← Konta</button></div><h2>📦 Loginy i hasła zastępami</h2>
-    ${nowe.size ? `<p>✅ Utworzono <b>${nowe.size}</b> ${plural(nowe.size, "konto", "konta", "kont")}.</p>` : ""}
+  return `<div class="card"><div class="row"><button id="back">${mdi("arrow-left", 15)} Konta</button></div><h2>${mdi("package-variant", 15)} Pakiety loginów i haseł</h2>
+    ${nowe.size ? `<p style="display:flex;align-items:center;gap:6px;">${mdi("check-circle", 15)} Utworzono <b>${nowe.size}</b> ${plural(nowe.size, "konto", "konta", "kont")}.</p>` : ""}
     ${v.errs?.length ? `<p class="err">Nie udało się: ${v.errs.map(esc).join(" · ")}</p>` : ""}
     ${nowe.size ? `<div class="row"><label class="chk"><input type="checkbox" id="pk_only" ${only ? "checked" : ""}> Pokaż tylko nowo utworzone konta</label></div>` : ""}
     <p class="mut">Każdy pakiet możesz skopiować i wysłać zastępowemu albo harcerzom (np. na Messengerze).</p>
-    <div class="row"><button id="pk_all">📋 Kopiuj wszystkie</button></div></div>
+    <div class="row"><button id="pk_all">${mdi("content-copy", 15)} Kopiuj wszystkie</button></div></div>
     ${groups.map((g, i) => `<div class="card"><h3 style="margin-top:0">${g.z} <span class="mut">(${g.list.length})</span></h3>
       <pre class="pak" id="pk_${i}">${esc(pakietTxt(g.z, g.list))}</pre>
-      <div class="row"><button class="pri" data-pk="${i}">📋 Kopiuj</button>${navigator.share ? `<button data-pks="${i}">📤 Udostępnij</button>` : ""}</div></div>`).join("")
+      <div class="row"><button class="pri" data-pk="${i}">${mdi("content-copy", 15)} Kopiuj</button>${navigator.share ? `<button data-pks="${i}">${mdi("share-variant", 15)} Udostępnij</button>` : ""}</div></div>`).join("")
       || `<div class="card"><p class="mut">Brak kont przypisanych do zastępów.</p></div>`}`;
 }
 function bindPakiety() {
@@ -2588,16 +2604,16 @@ function vUsers() {
   if (S.view?.kind === "pakiety") return vPakiety();
   const adm = isAdmin();
   const users = sortUsers(S.users, S.uSort);
-  return `<div class="card"><h2>Konta <span class="badge">${users.length}</span></h2>${adm ? `<div class="row"><button class="pri" id="unew">+ Nowe konto</button><button id="uimp">📥 Dodaj wiele kont</button><button id="upak">📦 Loginy i hasła zastępami</button></div>` : ""}
+  return `<div class="card"><h2>Konta <span class="badge">${users.length}</span></h2>${adm ? `<div class="row"><button class="pri" id="unew">+ Nowe konto</button><button id="uimp">${mdi("download", 15)} Dodaj wiele kont</button><button id="upak">${mdi("package-variant", 15)} Pakiety loginów i haseł</button></div>` : ""}
    <div class="row"><span class="mut">Sortuj:</span>${[["funkcja", "funkcja"], ["zastep", "zastęp"], ["imie", "imię i nazwisko"]].map(([v, l]) =>
      `<button data-usort="${v}" class="${S.uSort === v ? "on" : ""}">${l}</button>`).join("")}</div>
    <div class="scroll"><table><tr><th>Imię i nazwisko</th><th>Login</th>${adm ? "<th>Hasło</th>" : ""}<th>Funkcja</th><th>Zastęp</th><th></th></tr>
    ${users.map(u => `<tr><td>${esc(u.imie)}${u.id === S.user.uid ? ` <span class="badge">Ty</span>` : ""}</td><td>${esc(loginOfUser(u))}</td>
    ${adm ? `<td>${S.secrets?.[u.id] ? `<button data-show="${u.id}" class="mut">pokaż</button>` : `<span class="mut">nieznane</span>`}</td>` : ""}
-   <td>${ROLE_PL[u.rola] || `<span class="err">${esc(u.rola || "brak")}</span>`}${isAdm(u) ? `<div><span class="badge ok adm">🛡️ admin</span></div>` : ""}</td>
-   <td>${ZASTEPY.includes(u.zastep) ? u.zastep : (["zastepowy", "szeregowy"].includes(u.rola) ? `<span class="err">⚠ brak</span>` : "–")}</td>
-   <td><button data-ue="${u.id}" title="Edytuj" aria-label="Edytuj">✎</button></td></tr>`).join("")}</table></div>
-   <p class="mut">Kadra zmienia funkcję i zastęp. Administrator dodatkowo zakłada i usuwa konta, zmienia imię i nazwisko, login, hasło i uprawnienia administratora. Hasło każdy może też zmienić sam w zakładce „👤 Ja”.</p></div>`;
+   <td>${ROLE_PL[u.rola] || `<span class="err">${esc(u.rola || "brak")}</span>`}${isAdm(u) ? `<div><span class="badge ok adm">${mdi("shield-check", 12)} admin</span></div>` : ""}</td>
+   <td>${ZASTEPY.includes(u.zastep) ? u.zastep : (["zastepowy", "szeregowy"].includes(u.rola) ? `<span class="err">brak</span>` : "–")}</td>
+   <td><button data-ue="${u.id}" title="Edytuj" aria-label="Edytuj">${mdi("pencil", 14)}</button></td></tr>`).join("")}</table></div>
+   <p class="mut">Kadra zmienia funkcję i zastęp. Administrator dodatkowo zakłada i usuwa konta, zmienia imię i nazwisko, login, hasło i uprawnienia administratora. Hasło każdy może też zmienić sam w zakładce „Profil”.</p></div>`;
 }
 function vUserEdit() {
   const u = S.edit.d, isNew = !S.edit.id, self = S.edit.id === S.user.uid, known = !!S.secrets?.[S.edit.id];
@@ -2616,7 +2632,7 @@ function vUserEdit() {
    <div class="row"><label>Login<br><input id="f_login" value="${esc(u.login)}" autocapitalize="none" spellcheck="false"></label></div>
    <div class="row"><label>Hasło${isNew ? "" : " (puste = bez zmian)"}<br><input id="f_haslo" value="${esc(isNew ? u.haslo : "")}" autocapitalize="none" spellcheck="false" placeholder="${isNew ? "" : (known ? "••••••" : "")}"></label></div>
    ${!isNew ? `<div class="row"><label>Twoje hasło administratora <span class="mut">(potwierdzenie przy zmianie hasła lub usuwaniu konta)</span><br><input id="f_adm" type="password" autocomplete="current-password"></label></div>
-   ${!known && !self ? `<p class="mut">⚠ Hasło tego konta nie jest zapisane. Przy zmianie hasła aplikacja odtworzy konto z tym samym loginem, imieniem, funkcją i zastępem.</p>` : ""}` : ""}
+   ${!known && !self ? `<p class="mut">${mdi("alert-circle", 14)} Hasło tego konta nie jest zapisane. Przy zmianie hasła aplikacja odtworzy konto z tym samym loginem, imieniem, funkcją i zastępem.</p>` : ""}` : ""}
    <div class="row"><label>Funkcja<br><select id="f_rola" ${self ? "disabled" : ""}>${ROLE.map(([v, l]) => `<option value="${v}" ${u.rola === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
    <label>Zastęp<br><select id="f_zastep"><option value="">–</option>${ZASTEPY.map(z => `<option ${u.zastep === z ? "selected" : ""}>${z}</option>`).join("")}</select></label></div>
    <div class="row" id="adminRow" ${u.rola === "kadra" ? "" : "hidden"}><label class="sw"><input type="checkbox" id="f_admin" ${u.admin ? "checked" : ""} ${self ? "disabled" : ""}><span></span> Administrator</label>

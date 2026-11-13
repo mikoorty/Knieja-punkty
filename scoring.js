@@ -4,7 +4,7 @@ export const DEFAULT_CONFIG = {
   base: 20, step: 0.2, przyrost: 4, mundur: 4,
   duze: [40,30,25,20,15,10], male: [20,15,13,11,9,6],
   alarmProgi: [10,6,4,2], alarmBonus: [8,6,5,4,3,1], alarmProgiMin: [20,40,60],
-  sprawPkt: [5,10,20],           // sprawność: 1★, 2★, 3★
+  sprawPkt: [5,10,20],           // sprawność: 1, 2, 3 stopień (gwiazdki)
   liczebnosc: { Lisy:9, "Łosie":9, "Żubry":9, Rysie:9, "Niedźwiedzie":9, Gronostaje:9 },
   kwartaly: [
     { nazwa: "IV kw. 2026", start: "2026-10-01", end: "2026-12-31" },
