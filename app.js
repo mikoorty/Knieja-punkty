@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-093629";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-093629";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-094743";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-094743";
 
-const BUILD = "20261113-093629";
+const BUILD = "20261113-094743";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -35,11 +35,11 @@ const plDay = d => d ? d.split("-").reverse().join(".") : "–";
 const PLF = { timeZone: "Europe/Warsaw", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" };
 const plTs = t => { const d = t?.toDate ? t.toDate() : (t != null ? new Date(t) : null); return d && !isNaN(d) ? d.toLocaleString("pl-PL", PLF) : "–"; };
 const plTime = ms => ms == null ? "–" : new Date(ms).toLocaleTimeString("pl-PL", { timeZone: "Europe/Warsaw", hour: "2-digit", minute: "2-digit" });
-const rola = () => S.profile?.rola || "gosc";
+const rola = () => String(S.profile?.rola || S.profile?.grupa || "gosc").toLowerCase().trim();
 // Administrator = konto kadry z włączonym przełącznikiem "admin" (rola "admin" obsługiwana dla zgodności wstecz).
-const isAdm = u => !!u && ((u.rola === "kadra" && u.admin === true) || u.rola === "admin");
+const isAdm = u => !!u && ((["kadra", "admin"].includes(String(u.rola || u.grupa || "").toLowerCase().trim()) && u.admin === true) || String(u.rola || "").toLowerCase().trim() === "admin" || u.admin === true);
 const isAdmin = () => isAdm(S.profile);
-const isKadra = () => ["kadra", "admin"].includes(rola());                   // admin ma też uprawnienia kadry
+const isKadra = () => ["kadra", "admin"].includes(rola()) || String(S.profile?.grupa || "").toLowerCase().trim() === "kadra" || S.profile?.admin === true || isAdmin();
 const canZglaszac = () => isKadra() || rola() === "zastepowy";               // zbiórki zastępu
 const canMeldowac = () => ["szeregowy", "zastepowy"].includes(rola());     // meldunki z alarmów
 const quarter = () => S.cfg.kwartaly[S.q] || S.cfg.kwartaly[0];
@@ -1522,6 +1522,16 @@ function vQr() {
 
     const notifGranted = typeof Notification !== "undefined" && Notification.permission === "granted";
 
+    const deniedNotice = (S.denied?.kodyQr || S.denied?.skanyQr) ?
+      `<div class="card" style="border-color:var(--warn);background:rgba(181,83,47,0.1);padding:14px;margin-bottom:14px;">
+        <h3 style="color:var(--warn);margin:0 0 6px;">⚠️ Wymagana aktualizacja reguł w Firebase Console</h3>
+        <p style="margin:0 0 8px;">Baza danych Firebase nie ma jeszcze wgranych reguł dla kodów QR (<code>Missing or insufficient permissions</code>).</p>
+        <p style="margin:0;font-size:13px;"><b>Instrukcja dla kadry / administratora:</b><br>
+        1. Otwórz konsolę Firebase: <a href="https://console.firebase.google.com/project/kniejapunkty/firestore/rules" target="_blank" style="color:var(--acc);font-weight:bold;">Firebase Console → Firestore Database → Rules</a><br>
+        2. Wklej zaktualizowaną treść pliku <b><code>firestore.rules</code></b> z repozytorium.<br>
+        3. Kliknij <b>Opublikuj (Publish)</b>.</p>
+      </div>` : "";
+
     const createCard = '<div class="card"><h2>✨ Wygeneruj nowy kod QR</h2>' +
       '<div class="row"><input id="qr_new_nazwa" placeholder="Nazwa / etykieta kodu (np. Punkt 1 — Mostek, Zbiórka harcówka)" style="flex:1;min-width:220px"></div>' +
       '<div class="row"><input id="qr_new_opis" placeholder="Krótki opis lub instrukcja dla harcerzy (opcjonalnie)" style="flex:1;min-width:220px"></div>' +
@@ -1622,7 +1632,7 @@ function vQr() {
       scansTable +
     '</div>';
 
-    return createCard + notifCard + kadraCamCard + kodyCard + logCard;
+    return deniedNotice + createCard + notifCard + kadraCamCard + kodyCard + logCard;
   }
 
   const myScans = S.mySkanyQr || [];
@@ -1670,7 +1680,11 @@ binders.qr = () => {
       });
       alert('Kod QR „' + nazwa + '” został wygenerowany! Możesz go teraz wydrukować lub pobrać.');
     } catch (e) {
-      alert("Błąd generowania kodu: " + (e.message || e));
+      if (e.code === "permission-denied" || String(e.message || e).includes("insufficient")) {
+        alert("Błąd uprawnień Firebase (permission-denied). Wklej zaktualizowany plik firestore.rules w konsoli Firebase (Firestore Database → Rules → Publish).");
+      } else {
+        alert("Błąd generowania kodu: " + (e.message || e));
+      }
     }
     S.busy = false;
     render();

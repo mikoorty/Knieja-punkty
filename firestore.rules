@@ -5,8 +5,8 @@ service cloud.firestore {
     function hasProfile() { return signed() && exists(/databases/$(db)/documents/users/$(request.auth.uid)); }
     function me() { return get(/databases/$(db)/documents/users/$(request.auth.uid)).data; }
     // Administrator = konto kadry z przełącznikiem admin == true (rola 'admin' dla zgodności wstecz)
-    function admin() { return hasProfile() && ((me().rola == 'kadra' && me().get('admin', false) == true) || me().rola == 'admin'); }
-    function kadra() { return hasProfile() && me().rola in ['kadra', 'admin']; }
+    function admin() { return hasProfile() && ((me().get('rola', '') in ['kadra', 'Kadra'] && me().get('admin', false) == true) || me().get('rola', '') in ['admin', 'Admin'] || me().get('admin', false) == true); }
+    function kadra() { return hasProfile() && (me().get('rola', '') in ['kadra', 'Kadra', 'admin', 'Admin'] || me().get('grupa', '') in ['kadra', 'Kadra', 'admin', 'Admin'] || me().get('admin', false) == true); }
     function zastepowy() { return hasProfile() && me().rola == 'zastepowy'; }
     function szeregowy() { return hasProfile() && me().rola == 'szeregowy'; }
     function mojZastep() { return me().zastep in ['Lisy', 'Łosie', 'Żubry', 'Rysie', 'Niedźwiedzie', 'Gronostaje']; }
