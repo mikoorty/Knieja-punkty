@@ -32,4 +32,4 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk Kniejapunkty.apk
           gh release create "apk-${{ github.run_number }}" Kniejapunkty.apk --latest \
             --title "Kniejapunkty – aplikacja Android (wersja 1.${{ github.run_number }})" \
-            --notes "Pobierz Kniejapunkty.apk na telefonie i zainstaluj (zezwól na instalację z tego źródła). Aplikacja otwiera https://panbadek.github.io/Knieja-punkty/"
+            --notes "Pobierz Kniejapunkty.apk na telefonie i zainstaluj (zezwól na instalację z tego źródła). Aplikacja otwiera https://mikoorty.github.io/Knieja-punkty/"

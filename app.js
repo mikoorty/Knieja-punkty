@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-093250";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-093250";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-093629";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-093629";
 
-const BUILD = "20261113-093250";
+const BUILD = "20261113-093629";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -1898,10 +1898,10 @@ function vJa() {
       ${canMeldowac() || mySp.length ? tile("Twoje sprawności", mySp.filter(s => s.status === "przyznana").length, `przyznane w kwartale · ${mySp.filter(s => s.status === "oczekuje").length} czeka`) : ""}
       ${rola() === "zastepowy" || myZb.length ? tile("Zgłoszone przez Ciebie zbiórki", myZb.filter(x => x.status === "zatwierdzona").length, `zatwierdzone · ${myZb.filter(x => x.status === "oczekuje").length} czeka`) : ""}
     </div>
-    ${!inApp() && /Android/i.test(navigator.userAgent) ? `<div class="row"><a class="btn pri" href="https://github.com/panbadek/Knieja-punkty/releases/latest/download/Kniejapunkty.apk">📱 Pobierz aplikację na Androida (APK)</a></div>
+    ${!inApp() && /Android/i.test(navigator.userAgent) ? `<div class="row"><a class="btn pri" href="https://github.com/mikoorty/Knieja-punkty/releases/latest/download/Kniejapunkty.apk">📱 Pobierz aplikację na Androida (APK)</a></div>
       <p class="mut">Po pobraniu otwórz plik i zezwól na instalację z tego źródła. Aplikacja otwiera Kniejapunkty w pełnym oknie, z logo na ekranie głównym.</p>` : ""}
     ${(n => n ? `<div class="row"><button id="odrz">❌ Odrzucone prośby <span class="badge no">${n}</span></button></div>` : "")(odrzEntries().length)}
-    <p class="mut">Adres aplikacji: <b>panbadek.github.io/Knieja-punkty</b> · wersja ${BUILD}${inApp() ? " · aplikacja Android" : ""}</p>
+    <p class="mut">Adres aplikacji: <b>mikoorty.github.io/Knieja-punkty</b> · wersja ${BUILD}${inApp() ? " · aplikacja Android" : ""}</p>
     <div class="row"><button id="jaout">Wyloguj się</button></div>`;
   return `<div class="card"><h2>🏕 Zastęp${ZASTEPY.includes(z) ? ": " + z : ""}</h2><p class="mut">Kwartał: ${esc(q.nazwa)} (${plDay(q.start)} – ${plDay(q.end)})</p>${zast}</div>
     <div class="card"><h2>👤 Dane użytkownika</h2>${dane}</div>
@@ -2152,8 +2152,8 @@ function archHtml(a) {
 }
 
 // ---------- USTAWIENIA (kadra)
-const APP_URL = "https://panbadek.github.io/Knieja-punkty/";
-const APK_URL = "https://github.com/panbadek/Knieja-punkty/releases/latest/download/Kniejapunkty.apk";
+const APP_URL = "https://mikoorty.github.io/Knieja-punkty/";
+const APK_URL = "https://github.com/mikoorty/Knieja-punkty/releases/latest/download/Kniejapunkty.apk";
 const linkRow = (id, url) => `<div class="row"><input id="${id}" value="${url}" readonly style="flex:1;min-width:0" onfocus="this.select()">
   <button class="pri" data-copy="${id}">📋 Kopiuj</button>${navigator.share ? `<button data-share="${id}">📤 Udostępnij</button>` : ""}</div>`;
 async function copyText(text, btn) {

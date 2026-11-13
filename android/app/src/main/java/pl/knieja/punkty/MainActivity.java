@@ -31,12 +31,12 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 
 /**
- * Kniejapunkty — aplikacja otwierająca https://panbadek.github.io/Knieja-punkty/ w pełnym oknie.
+ * Kniejapunkty — aplikacja otwierająca https://mikoorty.github.io/Knieja-punkty/ w pełnym oknie.
  * Cała logika jest na stronie; tutaj tylko: okno, aparat/galeria, zapis plików, drukowanie.
  */
 public class MainActivity extends Activity {
-    static final String START = "https://panbadek.github.io/Knieja-punkty/";
-    static final String HOST = "panbadek.github.io";
+    static final String START = "https://mikoorty.github.io/Knieja-punkty/";
+    static final String HOST = "mikoorty.github.io";
     static final int REQ_FILE = 1;
     static final int REQ_CAMERA_PERMISSION = 2;
 
@@ -64,7 +64,7 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
-                if (HOST.equals(u.getHost())) return false;          // nasza strona — zostaje w aplikacji
+                if (HOST.equals(u.getHost()) || "panbadek.github.io".equals(u.getHost())) return false;          // nasza strona — zostaje w aplikacji
                 try { startActivity(new Intent(Intent.ACTION_VIEW, u)); } catch (Exception ignored) { }
                 return true;                                          // obce linki — w przeglądarce
             }
