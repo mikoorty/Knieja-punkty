@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-123042";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-123042";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-124335";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-124335";
 
-const BUILD = "20261113-123042";
+const BUILD = "20261113-124335";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -1556,7 +1556,8 @@ async function executeScanById(qrId) {
       rola: rola() || "szeregowy",
       zastep: S.profile?.zastep || "brak",
       czas: serverTimestamp(),
-      czasMs: Date.now()
+      czasMs: Date.now(),
+      ...(qr.redirectUrl ? { redirectUrl: qr.redirectUrl } : {})
     };
     await addDoc(collection(db, "skanyQr"), scanDoc);
 
@@ -1581,7 +1582,8 @@ async function executeScanById(qrId) {
 function showScanSuccessModal(qr) {
   const m = $("#modal");
   if (!m) return;
-  m.innerHTML = '<div class="box" style="text-align:center;max-width:380px;">' +
+  const hasTask = !!qr.redirectUrl;
+  m.innerHTML = '<div class="box" style="text-align:center;max-width:390px;">' +
     '<div style="font-size:48px;line-height:1;margin:8px 0;">✅</div>' +
     '<h2 style="margin:4px 0 8px;">Kod został zeskanowany!</h2>' +
     '<div style="font-size:18px;font-weight:700;color:var(--acc);margin-bottom:6px;">' + esc(qr.nazwa) + '</div>' +
@@ -1592,8 +1594,16 @@ function showScanSuccessModal(qr) {
     '<div><b>Rola:</b> ' + esc(rola() || "szeregowy") + '</div>' +
     '<div><b>Czas skanu:</b> ' + new Date().toLocaleString("pl-PL", PLF) + '</div>' +
     '</div>' +
+    (hasTask ? (
+      '<div style="background:var(--acc2);border:2px solid var(--acc);border-radius:12px;padding:14px;margin:12px 0;text-align:center;">' +
+        '<div style="font-size:26px;margin-bottom:4px;">🎯</div>' +
+        '<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px;">Do tego kodu przypisano zadanie!</div>' +
+        '<div class="mut" style="font-size:12px;margin-bottom:10px;">Obecność została zarejestrowana. Kliknij poniższy przycisk, aby przejść do treści zadania:</div>' +
+        '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="pri big" id="btn_modal_open_task" style="display:inline-block;width:100%;text-decoration:none;padding:12px 16px;font-size:16px;font-weight:800;border-radius:8px;box-sizing:border-box;">🚀 Przejdź do zadania</a>' +
+      '</div>'
+    ) : '') +
     '<p class="mut" style="font-size:12px;margin:8px 0 16px;">Kadra otrzymała powiadomienie o Twoim skanie.</p>' +
-    '<button class="pri big" id="modal_scan_ok">Gotowe</button>' +
+    '<button class="' + (hasTask ? "" : "pri big") + '" id="modal_scan_ok" style="' + (hasTask ? "width:100%;" : "") + '">Gotowe' + (hasTask ? ' (zostań w aplikacji)' : '') + '</button>' +
     '</div>';
   m.hidden = false;
   $("#modal_scan_ok").onclick = () => {
@@ -1602,6 +1612,14 @@ function showScanSuccessModal(qr) {
     S.tab = "qr";
     render();
   };
+  $("#btn_modal_open_task") && ($("#btn_modal_open_task").onclick = () => {
+    setTimeout(() => {
+      m.hidden = true;
+      m.innerHTML = "";
+      S.tab = "qr";
+      render();
+    }, 500);
+  });
 }
 
 function vQr() {
@@ -1635,6 +1653,8 @@ function vQr() {
     const createCard = '<div class="card"><h2>✨ Wygeneruj nowy kod QR</h2>' +
       '<div class="row"><input id="qr_new_nazwa" placeholder="Nazwa / etykieta kodu (np. Punkt 1 — Mostek, Zbiórka harcówka)" style="flex:1;min-width:220px"></div>' +
       '<div class="row"><input id="qr_new_opis" placeholder="Krótki opis lub instrukcja dla harcerzy (opcjonalnie)" style="flex:1;min-width:220px"></div>' +
+      '<div class="row"><input id="qr_new_redirect" type="url" placeholder="Link do zadania / przekierowanie (opcjonalnie, np. https://forms.gle/...)" style="flex:1;min-width:220px"></div>' +
+      '<small class="mut" style="display:block;margin:-6px 0 10px 2px;font-size:12px;">Opcjonalnie: jeśli podasz link, po zeskanowaniu kodu harcerz zobaczy przycisk bezpośredniego przejścia do zadania (np. formularz Google, instrukcja gry, Dysk).</small>' +
       '<div class="row"><button class="pri" id="qr_create_btn">Wygeneruj kod QR</button></div>' +
       '<p class="mut">Wygenerowany kod zostanie oznaczony Twoją etykietą i będzie gotowy do wydrukowania lub pobrania jako obraz. Każde zeskanowanie kodu przez harcerza natychmiast wyśle Ci powiadomienie.</p></div>';
 
@@ -1671,6 +1691,7 @@ function vQr() {
                 '<span class="badge ok">' + qrScans.length + ' ' + plural(qrScans.length, "skan", "skany", "skanów") + '</span>' +
               '</div>' +
               (qr.opis ? '<div class="mut" style="font-size:13px;margin:4px 0 8px;">' + esc(qr.opis) + '</div>' : '') +
+              (qr.redirectUrl ? '<div style="margin:4px 0 8px;font-size:12px;word-break:break-all;"><span class="badge ok">🎯 Zadanie</span> <a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600;">' + esc(qr.redirectUrl) + '</a></div>' : '') +
               '<div class="qr-preview">' + renderQrSvg(getQrPayload(qr.id), 4, 2) + '</div>' +
               '<div class="mut" style="font-size:11px;margin-top:6px;">Utworzył(a): ' + esc(qr.autorImie || "kadra") + ' · ' + plTs(qr.utworzono) + '</div>' +
             '</div>' +
@@ -1679,6 +1700,7 @@ function vQr() {
                 '<button class="pri" data-print-qr="' + qr.id + '">🖨 Drukuj</button>' +
                 '<button data-dl-qr="' + qr.id + '">💾 Pobierz PNG</button>' +
                 '<button data-copy-qr="' + qr.id + '">📋 Link</button>' +
+                (qr.redirectUrl ? '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="button" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;font-size:13px;">🔗 Zadanie</a>' : '') +
                 '<button data-toggle-qr="' + qr.id + '">' + (isExp ? "▲ Ukryj skany" : "▼ Skany (" + qrScans.length + ")") + '</button>' +
                 '<button class="del" data-del-qr="' + qr.id + '">Usuń</button>' +
               '</div>' +
@@ -1712,7 +1734,7 @@ function vQr() {
           '<td>' + esc(s.imie) + '</td>' +
           '<td>' + esc(s.zastep) + '</td>' +
           '<td class="mut">' + esc(s.rola) + '</td>' +
-          '<td><b>' + esc(s.qrNazwa) + '</b></td>' +
+          '<td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" class="mut" style="font-size:11px;color:var(--acc);">🎯 Zadanie: ' + esc(s.redirectUrl.length > 30 ? s.redirectUrl.slice(0, 28) + '…' : s.redirectUrl) + '</a>' : '') + '</td>' +
           '<td class="act"><button class="del" data-del-scan="' + s.id + '" title="Usuń wpis skanu">Usuń</button></td>' +
         '</tr>').join("") +
       '</table></div>';
@@ -1755,7 +1777,7 @@ function vQr() {
     '<h2>📋 Twoje zeskanowane kody <span class="badge ok">' + myScans.length + '</span></h2>' +
     (myScans.length === 0 ? '<p class="mut">Nie masz jeszcze żadnych zeskanowanych kodów.</p>' :
       '<div class="scroll"><table><tr><th>Data i czas</th><th>Kod QR</th><th>Status</th></tr>' +
-      myScans.map(s => '<tr><td><b>' + plTs(s.czas) + '</b></td><td><b>' + esc(s.qrNazwa) + '</b></td><td><span class="badge ok">✔ Zarejestrowano</span></td></tr>').join("") +
+      myScans.map(s => '<tr><td><b>' + plTs(s.czas) + '</b></td><td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" style="font-size:12px;color:var(--acc);font-weight:600;">🎯 Otwórz zadanie</a>' : '') + '</td><td><span class="badge ok">✔ Zarejestrowano</span></td></tr>').join("") +
       '</table></div>') +
   '</div>';
 }
@@ -1766,13 +1788,18 @@ binders.qr = () => {
   $("#qr_create_btn") && ($("#qr_create_btn").onclick = async () => {
     const nazwa = $("#qr_new_nazwa")?.value.trim();
     const opis = $("#qr_new_opis")?.value.trim() || "";
+    const redirectUrl = $("#qr_new_redirect")?.value.trim() || "";
     if (!nazwa) return alert("Wpisz nazwę / etykietę dla kodu QR.");
+    if (redirectUrl && !/^https?:\/\//i.test(redirectUrl)) {
+      return alert("Link do zadania musi zaczynać się od http:// lub https://");
+    }
     const btn = $("#qr_create_btn");
     btn.disabled = true; btn.textContent = "Generuję…"; S.busy = true;
     try {
       await addDoc(collection(db, "kodyQr"), {
         nazwa,
         opis,
+        redirectUrl,
         autorId: S.user.uid,
         autorImie: myName(),
         utworzono: serverTimestamp(),
@@ -2284,7 +2311,8 @@ function vUstawienia() {
    ${linkRow("lnk_web", APP_URL)}
    <h3>Aplikacja na Androida (APK)</h3>
    ${linkRow("lnk_apk", APK_URL)}
-   <p class="mut">Po pobraniu pliku trzeba zezwolić na instalację z tego źródła.</p></div>
+   ${inApp() ? `<div class="row" style="margin-top:8px;"><button id="btn_check_apk_update" class="pri">🔄 Sprawdź aktualizacje aplikacji</button></div>` : ""}
+   <p class="mut">Aplikacja na Androida automatycznie sprawdza nowe wersje w tle i powiadamia o nich przy uruchomieniu.</p></div>
    <div class="card"><h2>Ustawienia punktacji</h2>
    <div class="row">Pkt bazowe za zbiórkę zastępu <input type="number" data-c="base" value="${c.base}"></div>
    <div class="row">Przyrost streaka: + <input type="number" step="0.5" inputmode="decimal" data-c="przyrost" value="${streakInc(c)}"> pkt za każdą kolejną zbiórkę</div>
@@ -2311,6 +2339,13 @@ binders.ustawienia = () => {
   $('[data-c="base"]').addEventListener("input", ex); $('[data-c="przyrost"]').addEventListener("input", ex);
   $$("[data-copy]").forEach(b => b.onclick = () => copyText($("#" + b.dataset.copy).value, b));
   $$("[data-share]").forEach(b => b.onclick = () => navigator.share({ title: "Kniejapunkty", text: "Punktacja zastępów", url: $("#" + b.dataset.share).value }).catch(() => {}));
+  $("#btn_check_apk_update") && ($("#btn_check_apk_update").onclick = () => {
+    if (window.KniejaApp?.checkForUpdates) {
+      window.KniejaApp.checkForUpdates();
+    } else {
+      alert("Aplikacja Kniejapunkty jest aktualna lub funkcja sprawdzania nie jest dostępna.");
+    }
+  });
   const c = structuredClone(S.cfg);
   const read = () => {
     $$("[data-c]").forEach(el => { const k = el.dataset.c;
