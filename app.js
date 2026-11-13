@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-110831";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-110831";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-111213";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-111213";
 
-const BUILD = "20261113-110831";
+const BUILD = "20261113-111213";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -549,7 +549,7 @@ function vWyniki() {
       <p class="mut" style="margin:4px 0 8px 0;">W starej bazie znajduje się 18 zgłoszonych zbiórek i 6 alarmów. Kliknij poniżej, aby jednym kliknięciem przenieść je do Twojej nowej bazy.</p>
       <div class="row"><button class="pri" id="btn_import_old_data">📥 Pobierz zbiórki i alarmy ze starej bazy</button><span id="import_old_data_status" style="font-size:13px;align-self:center;"></span></div>
     </div>` : "";
-  return `${emptyHistoryBox}<div class="card"><h2>Ranking</h2>`;${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
+  return `${emptyHistoryBox}<div class="card"><h2>Ranking</h2>${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
 }
 
 binders.wyniki = () => {
