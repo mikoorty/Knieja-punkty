@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-112307";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-112307";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-113048";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-113048";
 
-const BUILD = "20261113-112307";
+const BUILD = "20261113-113048";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -236,41 +236,11 @@ const binders = {};
 
 // ---------- logowanie
 function vLogin() {
-  const migrateBox = S.showMigrate ? `
-    <div class="card" style="border-color:var(--acc);margin-top:14px;background:var(--acc2);">
-      <h2>🔄 Kopiowanie kont ze starej bazy (kniejapunkty)</h2>
-      <p class="mut">Podaj login i hasło konta kadry ze starej bazy. Aplikacja pobierze wszystkich harcerzy, zastępowych i kadrę oraz założy im konta w Twoim nowym projekcie Firebase.</p>
-      <div class="row"><input id="mig_login" placeholder="Login w starej bazie (np. mikoorty)" autocomplete="username" autocapitalize="none" style="width:100%"></div>
-      <div class="row"><input id="mig_pw" type="password" placeholder="Hasło w starej bazie" autocomplete="current-password" style="width:100%"></div>
-      <div class="row" style="margin-top:10px;"><button class="pri" id="mig_btn">Kopiuj konta</button><button id="mig_cancel">Anuluj</button></div>
-      <div id="mig_status" style="margin-top:10px;font-size:13px;font-family:monospace;white-space:pre-wrap;background:rgba(0,0,0,0.1);padding:8px;border-radius:6px;display:none;"></div>
-    </div>` : "";
-
-  const bootstrapBox = S.showRegister ? `
-    <div class="card" style="border-color:var(--acc);margin-top:14px;background:var(--acc2);">
-      <h2>✨ Załóż pierwsze konto administratora (Kadra)</h2>
-      <p class="mut">Utwórz główne konto kadry z uprawnieniami administratora w Twoim nowym projekcie Firebase.</p>
-      <div class="row"><input id="reg_imie" placeholder="Imię i nazwisko (np. Mikołaj)" style="width:100%"></div>
-      <div class="row"><input id="reg_login" placeholder="Login (np. mikoorty lub admin)" autocomplete="username" autocapitalize="none" style="width:100%"></div>
-      <div class="row"><input id="reg_pw" type="password" placeholder="Hasło (min. 6 znaków)" autocomplete="new-password" style="width:100%"></div>
-      <div class="row"><input id="reg_pw2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" style="width:100%"></div>
-      <div class="row" style="margin-top:10px;"><button class="pri" id="reg_btn">Utwórz konto kadry</button><button id="reg_cancel">Anuluj</button></div>
-    </div>` : "";
-
-  const actionsBox = (!S.showRegister && !S.showMigrate) ? `
-    <div class="row" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
-      <button id="mig_open" style="font-size:13px;width:100%;">🔄 Skopiuj konta ze starej bazy (kniejapunkty)</button>
-      <button id="reg_open" style="font-size:13px;width:100%;opacity:0.8;">✨ Załóż nowe konto administratora ręcznie</button>
-    </div>` : "";
-
   return `<div class="card">${S.pendingScanNotice ? `<div style="background:var(--acc2);border:1px solid var(--acc);border-radius:8px;padding:10px;margin-bottom:12px;color:var(--ink);"><b>ℹ️ ${esc(S.pendingScanNotice)}</b></div>` : ""}<h2>Logowanie</h2>
   <div class="row"><input id="em" placeholder="Login" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
   <div class="row"><input id="pw" type="password" placeholder="Hasło" autocomplete="current-password"></div>
   <div class="row"><button class="pri" id="li">Zaloguj</button></div>
   <p class="mut">Konta zakłada administrator — od niego dostajesz login i hasło.</p>
-  ${actionsBox}
-  ${migrateBox}
-  ${bootstrapBox}
   </div>`;
 }
 const DOMAIN = "@" + (firebaseConfig.authDomain || "kniejapunkty.firebaseapp.com");
@@ -282,239 +252,10 @@ const PL_ERR = { "auth/invalid-credential": "Zły login lub hasło.", "auth/inva
   "auth/email-already-in-use": "Takie konto już istnieje.", "auth/weak-password": "Hasło musi mieć co najmniej 6 znaków.",
   "auth/invalid-email": "Nieprawidłowy login.", "auth/too-many-requests": "Za dużo prób. Spróbuj za chwilę." };
 binders.login = () => {
-  $("#mig_open") && ($("#mig_open").onclick = () => { S.showMigrate = true; S.showRegister = false; render(); });
-  $("#mig_cancel") && ($("#mig_cancel").onclick = () => { S.showMigrate = false; render(); });
-  $("#mig_btn") && ($("#mig_btn").onclick = async () => {
-    const rawLogin = $("#mig_login")?.value;
-    const login = normLogin(rawLogin);
-    const pw = $("#mig_pw")?.value;
-    const status = $("#mig_status");
-    const btn = $("#mig_btn");
-    if (!login) return alert("Wpisz login ze starej bazy");
-    if (!pw) return alert("Wpisz hasło ze starej bazy");
-
-    btn.disabled = true;
-    if (status) { status.style.display = "block"; status.textContent = "1/4: Łączę ze starą bazą (kniejapunkty)…\n"; }
-
-    const OLD_KEY = "AIzaSyC9Q1oNT1iNANO3JCMsG-18nWVIiwl7VXI";
-    const OLD_PROJECT = "kniejapunkty";
-    const NEW_KEY = firebaseConfig.apiKey;
-    const NEW_PROJECT = firebaseConfig.projectId;
-
-    try {
-      // 1. Zaloguj do starej bazy
-      const oldEmail = login + "@kniejapunkty.firebaseapp.com";
-      const oldLoginRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${OLD_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: oldEmail, password: pw, returnSecureToken: true })
-      });
-      const oldAuth = await oldLoginRes.json();
-      if (!oldLoginRes.ok) throw new Error(PL_ERR[oldAuth.error?.message] || oldAuth.error?.message || "Nie udało się zalogować do starej bazy");
-
-      if (status) status.textContent += `✓ Zalogowano do starej bazy.\n2/4: Pobieram listę użytkowników i haseł…\n`;
-
-      // 2. Pobierz users i sekrety ze starej bazy
-      const headers = { Authorization: `Bearer ${oldAuth.idToken}` };
-      const usersRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/users?pageSize=300`, { headers });
-      const usersData = await usersRes.json();
-      if (!usersRes.ok) throw new Error("Błąd pobierania użytkowników: " + (usersData.error?.message || usersRes.statusText));
-      const oldUsers = usersData.documents || [];
-
-      let secretsMap = {};
-      try {
-        const secRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/sekrety?pageSize=300`, { headers });
-        const secData = await secRes.json();
-        if (secData.documents) {
-          for (const d of secData.documents) {
-            const id = d.name.split("/").pop();
-            const h = d.fields?.haslo?.stringValue;
-            if (id && h) secretsMap[id] = h;
-          }
-        }
-      } catch (e) { console.warn("sekrety:", e); }
-
-      if (status) status.textContent += `✓ Pobrano ${oldUsers.length} użytkowników.\n3/4: Tworzę konta w Twojej nowej bazie (${NEW_PROJECT})…\n`;
-
-      const decodeDoc = d => {
-        const out = {};
-        for (const [k, v] of Object.entries(d.fields || {})) {
-          if (v.stringValue !== undefined) out[k] = v.stringValue;
-          else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
-          else if (v.integerValue !== undefined) out[k] = parseInt(v.integerValue, 10);
-        }
-        out.id = d.name.split("/").pop();
-        return out;
-      };
-
-      const setRestDoc = async (token, path, fieldsObj) => {
-        const fields = {};
-        for (const [k, v] of Object.entries(fieldsObj)) {
-          if (typeof v === "boolean") fields[k] = { booleanValue: v };
-          else if (typeof v === "number") fields[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-          else fields[k] = { stringValue: String(v ?? "") };
-        }
-        await fetch(`https://firestore.googleapis.com/v1/projects/${NEW_PROJECT}/databases/(default)/documents/${path}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ fields })
-        });
-      };
-
-      let successCount = 0;
-      let adminToken = null;
-
-      for (let i = 0; i < oldUsers.length; i++) {
-        const u = decodeDoc(oldUsers[i]);
-        const userLogin = normLogin(u.login || u.email?.split("@")[0] || u.id);
-        const userEmail = userLogin + DOMAIN;
-        const userPass = secretsMap[u.id] || (userLogin === login ? pw : "start123");
-
-        try {
-          // Rejestracja w nowym projekcie
-          const regRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${NEW_KEY}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: userEmail, password: userPass, returnSecureToken: true })
-          });
-          let newAuth = await regRes.json();
-          if (!regRes.ok) {
-            if (newAuth.error?.message === "EMAIL_EXISTS") {
-              const signRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${NEW_KEY}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: userEmail, password: userPass, returnSecureToken: true })
-              });
-              newAuth = await signRes.json();
-            } else {
-              throw new Error(newAuth.error?.message || "Błąd signUp");
-            }
-          }
-
-          const newUid = newAuth.localId;
-          const token = newAuth.idToken;
-          if (userLogin === login || u.admin || u.rola === "kadra") adminToken = token;
-
-          await setRestDoc(token, `users/${newUid}`, {
-            email: userEmail,
-            login: userLogin,
-            imie: u.imie || userLogin,
-            rola: u.rola || "szeregowy",
-            admin: !!u.admin,
-            zastep: u.zastep || "brak",
-            poprzednieId: u.id
-          });
-          await setRestDoc(token, `loginy/${userLogin}`, { email: userEmail, uid: newUid });
-          await setRestDoc(token, `sekrety/${newUid}`, { haslo: userPass });
-
-          successCount++;
-          if (status) status.textContent += `  [${successCount}/${oldUsers.length}] ${u.imie || userLogin} (${u.rola || "szeregowy"})\n`;
-        } catch (e) {
-          if (status) status.textContent += `  ❌ Błąd przy ${userLogin}: ${e.message}\n`;
-        }
-      }
-
-      // Kopiowanie config/main oraz zbiórek, alarmów i meldunków
-      if (adminToken) {
-        if (status) status.textContent += '  Pobieram zbiórki, alarmy i meldunki…\n';
-        const histCols = ['zbiorkiZastepu', 'alarmy', 'meldunki', 'sprawnosci', 'akcje', 'korekty'];
-        for (const col of histCols) {
-          try {
-            const hRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/${col}?pageSize=300`);
-            if (!hRes.ok) continue;
-            const hData = await hRes.json();
-            const docs = hData.documents || [];
-            for (const d of docs) {
-              const docId = d.name.split('/').pop();
-              if (d.fields) {
-                await fetch(`https://firestore.googleapis.com/v1/projects/${NEW_PROJECT}/databases/(default)/documents/${col}/${docId}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-                  body: JSON.stringify({ fields: d.fields })
-                });
-              }
-            }
-            if (docs.length && status) status.textContent += `  ✓ Skopiowano ${docs.length} z ${col}\n`;
-          } catch (e) {}
-        }
-      }
-      // Kopiowanie config/main
-      try {
-        const cfgRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/config/main`);
-        const cfgData = await cfgRes.json();
-        if (cfgData.fields && adminToken) {
-          await fetch(`https://firestore.googleapis.com/v1/projects/${NEW_PROJECT}/databases/(default)/documents/config/main`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
-            body: JSON.stringify({ fields: cfgData.fields })
-          });
-        }
-      } catch (e) {}
-
-      if (status) status.textContent += `\n4/4: Gotowe! Zaloguję Cię na Twoje konto…`;
-
-      // Logujemy użytkownika w aplikacji
-      await signInWithEmailAndPassword(auth, login + DOMAIN, pw);
-      S.showMigrate = false;
-      S.tab = "wyniki";
-      render();
-    } catch (err) {
-      alert("Błąd migracji: " + (err.message || err));
-      if (status) status.textContent += `\n❌ Błąd: ${err.message || err}`;
-      btn.disabled = false;
-    }
-  });
-
-  $("#reg_open") && ($("#reg_open").onclick = () => { S.showRegister = true; S.showMigrate = false; render(); });
-  $("#reg_cancel") && ($("#reg_cancel").onclick = () => { S.showRegister = false; render(); });
-  $("#reg_btn") && ($("#reg_btn").onclick = async () => {
-    const imie = $("#reg_imie")?.value.trim();
-    const login = normLogin($("#reg_login")?.value);
-    const pw = $("#reg_pw")?.value;
-    const pw2 = $("#reg_pw2")?.value;
-    if (!imie) return alert("Wpisz imię i nazwisko");
-    if (!login) return alert("Wpisz login");
-    if (!pw || pw.length < 6) return alert("Hasło musi mieć co najmniej 6 znaków");
-    if (pw !== pw2) return alert("Hasła nie są takie same");
-
-    const btn = $("#reg_btn");
-    btn.disabled = true; btn.textContent = "Tworzę konto…"; S.busy = true;
-    try {
-      const email = login + DOMAIN;
-      const cred = await createUserWithEmailAndPassword(auth, email, pw);
-      const uid = cred.user.uid;
-      await setDoc(doc(db, "users", uid), {
-        email,
-        login,
-        imie,
-        rola: "kadra",
-        admin: true,
-        zastep: "brak",
-        utworzono: serverTimestamp()
-      });
-      await setDoc(doc(db, "loginy", login), { email, uid });
-      await setDoc(doc(db, "sekrety", uid), { haslo: pw });
-      try {
-        const cfgDoc = await getDoc(doc(db, "config", "main"));
-        if (!cfgDoc.exists()) {
-          await setDoc(doc(db, "config", "main"), DEFAULT_CONFIG);
-        }
-      } catch (e) {}
-      alert(`Konto administratora „${login}” zostało pomyślnie utworzone! Jesteś teraz zalogowany jako Kadra.`);
-      S.showRegister = false;
-      S.tab = "wyniki";
-      render();
-    } catch (e) {
-      alert("Błąd podczas rejestracji: " + (PL_ERR[e.code] || e.message || e));
-    }
-    S.busy = false;
-    render();
-  });
-
   $("#li").onclick = async () => {
     const login = normLogin($("#em").value); if (!login) return alert("Wpisz login");
     try {
-      let email = login + DOMAIN;                                   // starsze konta: login = początek e-maila
+      let email = login + DOMAIN;
       try { const m = await getDoc(doc(db, "loginy", login)); if (m.exists()) email = m.data().email; }
       catch (e) { console.warn("loginy:", e.code); S.diag = "brak dostępu do 'loginy' (stare reguły?)"; }
       S.typedLogin = login;
@@ -523,76 +264,6 @@ binders.login = () => {
     } catch (e) { S.typedLogin = null; alert(PL_ERR[e.code] || ("Błąd: " + e.message)); }
   };
 };
-
-async function syncOldHistory(statusCb = () => {}) {
-  const OLD_PROJECT = "kniejapunkty";
-  const decodeDocData = d => {
-    const out = {};
-    for (const [k, v] of Object.entries(d.fields || {})) {
-      if (v.stringValue !== undefined) out[k] = v.stringValue;
-      else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
-      else if (v.integerValue !== undefined) out[k] = parseInt(v.integerValue, 10);
-      else if (v.doubleValue !== undefined) out[k] = v.doubleValue;
-      else if (v.timestampValue !== undefined) out[k] = new Date(v.timestampValue);
-      else if (v.mapValue !== undefined) {
-        out[k] = {};
-        for (const [mk, mv] of Object.entries(v.mapValue.fields || {})) {
-          out[k][mk] = mv.stringValue ?? (mv.integerValue ? parseInt(mv.integerValue, 10) : (mv.booleanValue ?? mv));
-        }
-      } else if (v.arrayValue !== undefined) {
-        out[k] = (v.arrayValue.values || []).map(item => item.stringValue ?? (item.integerValue ? parseInt(item.integerValue, 10) : item));
-      }
-    }
-    return out;
-  };
-
-  const cols = ["zbiorkiZastepu", "alarmy", "meldunki", "sprawnosci", "akcje", "korekty"];
-  let totalCopied = 0;
-  const errors = [];
-
-  for (const c of cols) {
-    statusCb(`Pobieram ${c} ze starej bazy…`);
-    try {
-      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/${c}?pageSize=300`);
-      if (!res.ok) continue;
-      const json = await res.json();
-      const docs = json.documents || [];
-      for (const d of docs) {
-        const id = d.name.split("/").pop();
-        const data = decodeDocData(d);
-        try {
-          await setDoc(doc(db, c, id), data);
-          totalCopied++;
-        } catch (setErr) {
-          console.error(`Błąd zapisu w ${c}/${id}:`, setErr);
-          errors.push(`${c}/${id}: ${setErr.message || setErr.code || setErr}`);
-        }
-      }
-    } catch (e) {
-      console.warn(`Błąd przy pobieraniu ${c}:`, e);
-      errors.push(`Pobieranie ${c}: ${e.message || e}`);
-    }
-  }
-
-  try {
-    const resCfg = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/config/main`);
-    if (resCfg.ok) {
-      const jsonCfg = await resCfg.json();
-      if (jsonCfg.fields) {
-        await setDoc(doc(db, "config", "main"), sanitizeConfig(decodeDocData(jsonCfg)));
-      }
-    }
-  } catch (e) {
-    console.warn("Błąd przy zapisie config:", e);
-  }
-
-  if (errors.length > 0) {
-    throw new Error(`Zaimportowano ${totalCopied} wpisów, ale wystąpiły błędy uprawnień:\n` + errors.slice(0, 3).join("\n"));
-  }
-
-  statusCb(`Zaimportowano ${totalCopied} wpisów!`);
-  return totalCopied;
-}
 
 // ---------- WYNIKI
 function vWyniki() {
@@ -608,13 +279,7 @@ function vWyniki() {
     <div class="pts">${frac(t[z].suma)}</div></div>`; }).join("");
   const det = ZASTEPY.map(z => `<details><summary><b>${z}</b> — historia streaka</summary><table><tr><th>Tydzień</th><th class="n">n</th><th class="n">Pkt</th><th></th></tr>
     ${t[z].log.map(l => `<tr><td>${plDay(l.tydzien)}</td><td class="n">${l.n}</td><td class="n">${frac(l.pkt)}</td><td class="mut">${l.info || ""}</td></tr>`).join("") || `<tr><td colspan=4 class="mut">brak</td></tr>`}</table></details>`).join("");
-  const emptyHistoryBox = (isKadra() && (S.zbiorki || []).length === 0) ? `
-    <div class="card" style="border:1px solid var(--acc);background:var(--acc2);margin-bottom:12px;">
-      <b>📥 Pusta baza zbiórek i alarmów</b>
-      <p class="mut" style="margin:4px 0 8px 0;">W starej bazie znajduje się 18 zgłoszonych zbiórek i 6 alarmów. Kliknij poniżej, aby jednym kliknięciem przenieść je do Twojej nowej bazy.</p>
-      <div class="row"><button class="pri" id="btn_import_old_data">📥 Pobierz zbiórki i alarmy ze starej bazy</button><span id="import_old_data_status" style="font-size:13px;align-self:center;"></span></div>
-    </div>` : "";
-  return `${emptyHistoryBox}<div class="card"><h2>Ranking</h2>${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
+  return `<div class="card"><h2>Ranking</h2>${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
 }
 
 binders.wyniki = () => {
@@ -623,24 +288,6 @@ binders.wyniki = () => {
   if (S.view?.kind === "odrz") return bindOdrz();
   bindHistBtn(); bindOdrzBtn(); bindChart();
   $("#arch") && ($("#arch").onclick = () => { S.view = { kind: "arch" }; render(); });
-
-  const btn = $("#btn_import_old_data");
-  if (btn) {
-    btn.onclick = async () => {
-      const st = $("#import_old_data_status");
-      btn.disabled = true;
-      try {
-        if (st) st.textContent = "Rozpoczynam pobieranie danych ze starej bazy…";
-        const n = await syncOldHistory(txt => { if (st) st.textContent = txt; });
-        alert(`Pomyślnie zaimportowano ${n} wpisów (w tym 18 zbiórek i 6 alarmów)! Punkty zostały przeliczone.`);
-        render();
-      } catch (e) {
-        alert("Wynik importu: " + (e.message || e));
-        if (st) st.textContent = "❌ " + (e.message || e);
-        btn.disabled = false;
-      }
-    };
-  }
 };
 
 // ---------- ZBIÓRKI ZASTĘPU
@@ -2607,9 +2254,6 @@ function vUstawienia() {
    <button id="kadd">+ Kwartał</button>
    <div class="row" style="margin-top:14px"><button class="pri" id="csave">Zapisz ustawienia</button></div>
    <p class="mut">Zmiana ustawień przelicza wszystkie wyniki od nowa. Streak zeruje się na początku każdego kwartału.</p></div>
-   <div class="card"><h2>🔄 Synchronizacja danych ze starej bazy</h2>
-   <p class="mut">Jeśli brakuje starych zbiórek (18), alarmów (6) lub meldunków, możesz je w każdej chwili pobrać ze starej bazy (kniejapunkty).</p>
-   <div class="row"><button class="pri" id="btn_sync_old">📥 Pobierz zbiórki i alarmy ze starej bazy</button><span id="sync_old_status" style="font-size:13px;align-self:center;"></span></div>
    </div>`;
 }
 const kontaZ = z => S.users.filter(u => u.zastep === z && ["szeregowy", "zastepowy"].includes(u.rola)).length;
@@ -2638,24 +2282,6 @@ binders.ustawienia = () => {
     read(); c.step = c.base ? c.przyrost / c.base : 0;
     setDoc(doc(db, "config", "main"), c).then(() => alert("Zapisano liczebność zastępów.")).catch(err);
   };
-
-  const syncBtn = $("#btn_sync_old");
-  if (syncBtn) {
-    syncBtn.onclick = async () => {
-      const st = $("#sync_old_status");
-      syncBtn.disabled = true;
-      try {
-        if (st) st.textContent = "Rozpoczynam pobieranie…";
-        const n = await syncOldHistory(txt => { if (st) st.textContent = txt; });
-        alert(`Pomyślnie zaimportowano ${n} wpisów! Punkty zostały przeliczone.`);
-        render();
-      } catch (e) {
-        alert("Błąd: " + (e.message || e));
-        if (st) st.textContent = "❌ " + (e.message || e);
-        syncBtn.disabled = false;
-      }
-    };
-  }
 };
 
 // ---------- UŻYTKOWNICY (tylko administrator)
