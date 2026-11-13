@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-105014";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-105014";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-105508";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-105508";
 
-const BUILD = "20261113-105014";
+const BUILD = "20261113-105508";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -185,6 +185,16 @@ const binders = {};
 
 // ---------- logowanie
 function vLogin() {
+  const migrateBox = S.showMigrate ? `
+    <div class="card" style="border-color:var(--acc);margin-top:14px;background:var(--acc2);">
+      <h2>🔄 Kopiowanie kont ze starej bazy (kniejapunkty)</h2>
+      <p class="mut">Podaj login i hasło konta kadry ze starej bazy. Aplikacja pobierze wszystkich harcerzy, zastępowych i kadrę oraz założy im konta w Twoim nowym projekcie Firebase.</p>
+      <div class="row"><input id="mig_login" placeholder="Login w starej bazie (np. mikoorty)" autocomplete="username" autocapitalize="none" style="width:100%"></div>
+      <div class="row"><input id="mig_pw" type="password" placeholder="Hasło w starej bazie" autocomplete="current-password" style="width:100%"></div>
+      <div class="row" style="margin-top:10px;"><button class="pri" id="mig_btn">Kopiuj konta</button><button id="mig_cancel">Anuluj</button></div>
+      <div id="mig_status" style="margin-top:10px;font-size:13px;font-family:monospace;white-space:pre-wrap;background:rgba(0,0,0,0.1);padding:8px;border-radius:6px;display:none;"></div>
+    </div>` : "";
+
   const bootstrapBox = S.showRegister ? `
     <div class="card" style="border-color:var(--acc);margin-top:14px;background:var(--acc2);">
       <h2>✨ Załóż pierwsze konto administratora (Kadra)</h2>
@@ -194,16 +204,21 @@ function vLogin() {
       <div class="row"><input id="reg_pw" type="password" placeholder="Hasło (min. 6 znaków)" autocomplete="new-password" style="width:100%"></div>
       <div class="row"><input id="reg_pw2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" style="width:100%"></div>
       <div class="row" style="margin-top:10px;"><button class="pri" id="reg_btn">Utwórz konto kadry</button><button id="reg_cancel">Anuluj</button></div>
-    </div>` : `
-    <div class="row" style="margin-top:14px;justify-content:center;">
-      <button id="reg_open" style="font-size:13px;width:100%;">✨ Nowy projekt? Załóż pierwsze konto administratora</button>
-    </div>`;
+    </div>` : "";
+
+  const actionsBox = (!S.showRegister && !S.showMigrate) ? `
+    <div class="row" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+      <button id="mig_open" style="font-size:13px;width:100%;">🔄 Skopiuj konta ze starej bazy (kniejapunkty)</button>
+      <button id="reg_open" style="font-size:13px;width:100%;opacity:0.8;">✨ Załóż nowe konto administratora ręcznie</button>
+    </div>` : "";
 
   return `<div class="card">${S.pendingScanNotice ? `<div style="background:var(--acc2);border:1px solid var(--acc);border-radius:8px;padding:10px;margin-bottom:12px;color:var(--ink);"><b>ℹ️ ${esc(S.pendingScanNotice)}</b></div>` : ""}<h2>Logowanie</h2>
   <div class="row"><input id="em" placeholder="Login" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
   <div class="row"><input id="pw" type="password" placeholder="Hasło" autocomplete="current-password"></div>
   <div class="row"><button class="pri" id="li">Zaloguj</button></div>
   <p class="mut">Konta zakłada administrator — od niego dostajesz login i hasło.</p>
+  ${actionsBox}
+  ${migrateBox}
   ${bootstrapBox}
   </div>`;
 }
@@ -216,7 +231,166 @@ const PL_ERR = { "auth/invalid-credential": "Zły login lub hasło.", "auth/inva
   "auth/email-already-in-use": "Takie konto już istnieje.", "auth/weak-password": "Hasło musi mieć co najmniej 6 znaków.",
   "auth/invalid-email": "Nieprawidłowy login.", "auth/too-many-requests": "Za dużo prób. Spróbuj za chwilę." };
 binders.login = () => {
-  $("#reg_open") && ($("#reg_open").onclick = () => { S.showRegister = true; render(); });
+  $("#mig_open") && ($("#mig_open").onclick = () => { S.showMigrate = true; S.showRegister = false; render(); });
+  $("#mig_cancel") && ($("#mig_cancel").onclick = () => { S.showMigrate = false; render(); });
+  $("#mig_btn") && ($("#mig_btn").onclick = async () => {
+    const rawLogin = $("#mig_login")?.value;
+    const login = normLogin(rawLogin);
+    const pw = $("#mig_pw")?.value;
+    const status = $("#mig_status");
+    const btn = $("#mig_btn");
+    if (!login) return alert("Wpisz login ze starej bazy");
+    if (!pw) return alert("Wpisz hasło ze starej bazy");
+
+    btn.disabled = true;
+    if (status) { status.style.display = "block"; status.textContent = "1/4: Łączę ze starą bazą (kniejapunkty)…\n"; }
+
+    const OLD_KEY = "AIzaSyC9Q1oNT1iNANO3JCMsG-18nWVIiwl7VXI";
+    const OLD_PROJECT = "kniejapunkty";
+    const NEW_KEY = firebaseConfig.apiKey;
+    const NEW_PROJECT = firebaseConfig.projectId;
+
+    try {
+      // 1. Zaloguj do starej bazy
+      const oldEmail = login + "@kniejapunkty.firebaseapp.com";
+      const oldLoginRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${OLD_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: oldEmail, password: pw, returnSecureToken: true })
+      });
+      const oldAuth = await oldLoginRes.json();
+      if (!oldLoginRes.ok) throw new Error(PL_ERR[oldAuth.error?.message] || oldAuth.error?.message || "Nie udało się zalogować do starej bazy");
+
+      if (status) status.textContent += `✓ Zalogowano do starej bazy.\n2/4: Pobieram listę użytkowników i haseł…\n`;
+
+      // 2. Pobierz users i sekrety ze starej bazy
+      const headers = { Authorization: `Bearer ${oldAuth.idToken}` };
+      const usersRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/users?pageSize=300`, { headers });
+      const usersData = await usersRes.json();
+      if (!usersRes.ok) throw new Error("Błąd pobierania użytkowników: " + (usersData.error?.message || usersRes.statusText));
+      const oldUsers = usersData.documents || [];
+
+      let secretsMap = {};
+      try {
+        const secRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/sekrety?pageSize=300`, { headers });
+        const secData = await secRes.json();
+        if (secData.documents) {
+          for (const d of secData.documents) {
+            const id = d.name.split("/").pop();
+            const h = d.fields?.haslo?.stringValue;
+            if (id && h) secretsMap[id] = h;
+          }
+        }
+      } catch (e) { console.warn("sekrety:", e); }
+
+      if (status) status.textContent += `✓ Pobrano ${oldUsers.length} użytkowników.\n3/4: Tworzę konta w Twojej nowej bazie (${NEW_PROJECT})…\n`;
+
+      const decodeDoc = d => {
+        const out = {};
+        for (const [k, v] of Object.entries(d.fields || {})) {
+          if (v.stringValue !== undefined) out[k] = v.stringValue;
+          else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
+          else if (v.integerValue !== undefined) out[k] = parseInt(v.integerValue, 10);
+        }
+        out.id = d.name.split("/").pop();
+        return out;
+      };
+
+      const setRestDoc = async (token, path, fieldsObj) => {
+        const fields = {};
+        for (const [k, v] of Object.entries(fieldsObj)) {
+          if (typeof v === "boolean") fields[k] = { booleanValue: v };
+          else if (typeof v === "number") fields[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+          else fields[k] = { stringValue: String(v ?? "") };
+        }
+        await fetch(`https://firestore.googleapis.com/v1/projects/${NEW_PROJECT}/databases/(default)/documents/${path}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ fields })
+        });
+      };
+
+      let successCount = 0;
+      let adminToken = null;
+
+      for (let i = 0; i < oldUsers.length; i++) {
+        const u = decodeDoc(oldUsers[i]);
+        const userLogin = normLogin(u.login || u.email?.split("@")[0] || u.id);
+        const userEmail = userLogin + DOMAIN;
+        const userPass = secretsMap[u.id] || (userLogin === login ? pw : "start123");
+
+        try {
+          // Rejestracja w nowym projekcie
+          const regRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${NEW_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: userEmail, password: userPass, returnSecureToken: true })
+          });
+          let newAuth = await regRes.json();
+          if (!regRes.ok) {
+            if (newAuth.error?.message === "EMAIL_EXISTS") {
+              const signRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${NEW_KEY}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: userEmail, password: userPass, returnSecureToken: true })
+              });
+              newAuth = await signRes.json();
+            } else {
+              throw new Error(newAuth.error?.message || "Błąd signUp");
+            }
+          }
+
+          const newUid = newAuth.localId;
+          const token = newAuth.idToken;
+          if (userLogin === login || u.admin || u.rola === "kadra") adminToken = token;
+
+          await setRestDoc(token, `users/${newUid}`, {
+            email: userEmail,
+            login: userLogin,
+            imie: u.imie || userLogin,
+            rola: u.rola || "szeregowy",
+            admin: !!u.admin,
+            zastep: u.zastep || "brak",
+            poprzednieId: u.id
+          });
+          await setRestDoc(token, `loginy/${userLogin}`, { email: userEmail, uid: newUid });
+          await setRestDoc(token, `sekrety/${newUid}`, { haslo: userPass });
+
+          successCount++;
+          if (status) status.textContent += `  [${successCount}/${oldUsers.length}] ${u.imie || userLogin} (${u.rola || "szeregowy"})\n`;
+        } catch (e) {
+          if (status) status.textContent += `  ❌ Błąd przy ${userLogin}: ${e.message}\n`;
+        }
+      }
+
+      // Kopiowanie config/main
+      try {
+        const cfgRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/config/main`);
+        const cfgData = await cfgRes.json();
+        if (cfgData.fields && adminToken) {
+          await fetch(`https://firestore.googleapis.com/v1/projects/${NEW_PROJECT}/databases/(default)/documents/config/main`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminToken}` },
+            body: JSON.stringify({ fields: cfgData.fields })
+          });
+        }
+      } catch (e) {}
+
+      if (status) status.textContent += `\n4/4: Gotowe! Zaloguję Cię na Twoje konto…`;
+
+      // Logujemy użytkownika w aplikacji
+      await signInWithEmailAndPassword(auth, login + DOMAIN, pw);
+      S.showMigrate = false;
+      S.tab = "wyniki";
+      render();
+    } catch (err) {
+      alert("Błąd migracji: " + (err.message || err));
+      if (status) status.textContent += `\n❌ Błąd: ${err.message || err}`;
+      btn.disabled = false;
+    }
+  });
+
+  $("#reg_open") && ($("#reg_open").onclick = () => { S.showRegister = true; S.showMigrate = false; render(); });
   $("#reg_cancel") && ($("#reg_cancel").onclick = () => { S.showRegister = false; render(); });
   $("#reg_btn") && ($("#reg_btn").onclick = async () => {
     const imie = $("#reg_imie")?.value.trim();
