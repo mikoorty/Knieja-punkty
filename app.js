@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-113048";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-113048";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-123042";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-123042";
 
-const BUILD = "20261113-113048";
+const BUILD = "20261113-123042";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -1387,20 +1387,41 @@ function printScansReport(scans, filterQrName) {
 }
 
 async function startQrScanner(videoEl, onResult) {
+  if (inApp() && window.KniejaApp?.hasCameraPermission && !window.KniejaApp.hasCameraPermission()) {
+    window.onCameraPermissionGranted = () => {
+      startQrScanner(videoEl, onResult);
+    };
+    window.KniejaApp.requestCameraPermission();
+    return;
+  }
   if (!navigator.mediaDevices?.getUserMedia) {
-    alert("Twoja przeglądarka lub urządzenie nie obsługuje bezpośredniego dostępu do kamery. Użyj przycisku wyboru zdjęcia poniżej.");
+    alert("Twoja przeglądarka lub urządzenie nie obsługuje bezpośredniego dostępu do kamery. Użyj przycisku „Zrób zdjęcie / Wybierz plik” poniżej.");
     return;
   }
   stopQrScanner();
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: qrFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: qrFacingMode } }
+      });
+    } catch (errFacing) {
+      console.warn("Retrying with simple video:true", errFacing);
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
     qrCamStream = stream;
     if (videoEl) {
+      videoEl.setAttribute("autoplay", "");
+      videoEl.setAttribute("muted", "");
+      videoEl.setAttribute("playsinline", "true");
+      videoEl.setAttribute("webkit-playsinline", "true");
+      videoEl.muted = true;
+      videoEl.playsInline = true;
       videoEl.srcObject = stream;
-      await videoEl.play().catch(() => {});
+      await videoEl.play().catch(e => console.warn("video.play error:", e));
     }
+    const b = $("#btn_cam_toggle");
+    if (b) b.textContent = "⏹ Zatrzymaj aparat";
     const canvas = document.createElement("canvas");
     let detector = null;
     if ("BarcodeDetector" in window) {
@@ -1442,7 +1463,15 @@ async function startQrScanner(videoEl, onResult) {
     qrScanAnimId = requestAnimationFrame(tick);
   } catch (e) {
     stopQrScanner();
-    alert("Nie udało się uruchomić aparatu (" + (e.name === "NotAllowedError" ? "brak zezwolenia" : e.message) + "). Użyj opcji zrobienia zdjęcia z galerii lub pliku.");
+    console.warn("getUserMedia error:", e);
+    if (inApp() && window.KniejaApp?.requestCameraPermission && (e.name === "NotAllowedError" || e.name === "PermissionDeniedError")) {
+      window.onCameraPermissionGranted = () => {
+        startQrScanner(videoEl, onResult);
+      };
+      window.KniejaApp.requestCameraPermission();
+      return;
+    }
+    alert("Nie udało się uruchomić aparatu (" + (e.name === "NotAllowedError" ? "brak zezwolenia w aplikacji / przeglądarce" : e.message) + "). Użyj przycisku „Zrób zdjęcie / Wybierz plik”, aby zeskanować kod aparatem systemowym.");
   }
 }
 
@@ -1455,6 +1484,12 @@ function stopQrScanner() {
     cancelAnimationFrame(qrScanAnimId);
     qrScanAnimId = null;
   }
+  const videoEl = $("#scan_video");
+  if (videoEl) {
+    try { videoEl.srcObject = null; } catch (e) {}
+  }
+  const b = $("#btn_cam_toggle");
+  if (b) b.textContent = "▶ Uruchom aparat i skanuj";
 }
 
 async function flipQrScanner(videoEl, onResult) {
@@ -1474,6 +1509,18 @@ async function executeScanById(qrId) {
     return;
   }
 
+  // Upewnij się, że profil użytkownika jest wczytany
+  if (!S.profile) {
+    try {
+      const snap = await getDoc(doc(db, "users", S.user.uid));
+      if (snap.exists()) {
+        S.profile = snap.data();
+      }
+    } catch (e) {
+      console.warn("getDoc users:", e);
+    }
+  }
+
   let qr = S.kodyQr?.find(q => q.id === qrId);
   if (!qr) {
     try {
@@ -1490,9 +1537,10 @@ async function executeScanById(qrId) {
     return alert("Nie znaleziono kodu QR o identyfikatorze: " + qrId + ". Być może został usunięty przez kadrę.");
   }
 
-  const recent = S.skanyQr?.find(s => s.qrId === qrId && s.uid === S.user.uid && (Date.now() - (s.czasMs || 0)) < 30000);
+  const allUserScans = [...(S.skanyQr || []), ...(S.mySkanyQr || [])];
+  const recent = allUserScans.find(s => s && s.qrId === qrId && s.uid === S.user.uid && (Date.now() - (s.czasMs || 0)) < 30000);
   if (recent) {
-    alert('Kod „' + qr.nazwa + '” został już przez Ciebie zeskanowany przed chwilą!');
+    alert('Kod „' + (qr.nazwa || "QR") + '” został już przez Ciebie zeskanowany przed chwilą!');
     S.tab = "qr";
     render();
     return;
@@ -1501,11 +1549,11 @@ async function executeScanById(qrId) {
   try {
     const scanDoc = {
       qrId: qr.id,
-      qrNazwa: qr.nazwa,
+      qrNazwa: qr.nazwa || "Kod QR",
       uid: S.user.uid,
-      imie: myName(),
-      login: S.profile?.login || loginOf(S.user?.email),
-      rola: rola(),
+      imie: myName() || loginOf(S.user?.email) || "Harcerz",
+      login: S.profile?.login || loginOf(S.user?.email) || "uzytkownik",
+      rola: rola() || "szeregowy",
       zastep: S.profile?.zastep || "brak",
       czas: serverTimestamp(),
       czasMs: Date.now()
@@ -1516,13 +1564,13 @@ async function executeScanById(qrId) {
       await updateDoc(doc(db, "kodyQr", qr.id), {
         skanyCount: (qr.skanyCount || 0) + 1,
         ostatniSkan: serverTimestamp(),
-        ostatniSkanKto: myName()
+        ostatniSkanKto: myName() || loginOf(S.user?.email) || "Harcerz"
       });
     } catch (e) {}
 
     playScanChime();
     if (inApp() && window.KniejaApp?.toast) {
-      window.KniejaApp.toast("Zeskanowano kod: " + qr.nazwa);
+      window.KniejaApp.toast("Zeskanowano kod: " + (qr.nazwa || "QR"));
     }
     showScanSuccessModal(qr);
   } catch (e) {
@@ -1539,9 +1587,9 @@ function showScanSuccessModal(qr) {
     '<div style="font-size:18px;font-weight:700;color:var(--acc);margin-bottom:6px;">' + esc(qr.nazwa) + '</div>' +
     (qr.opis ? '<div class="mut" style="margin-bottom:12px;">' + esc(qr.opis) + '</div>' : '') +
     '<div class="card" style="margin:10px 0;text-align:left;font-size:13px;display:grid;gap:4px;">' +
-    '<div><b>Zeskanował(a):</b> ' + esc(myName()) + '</div>' +
+    '<div><b>Zeskanował(a):</b> ' + esc(myName() || loginOf(S.user?.email) || "Harcerz") + '</div>' +
     '<div><b>Zastęp:</b> ' + esc(S.profile?.zastep || "brak") + '</div>' +
-    '<div><b>Rola:</b> ' + esc(rola()) + '</div>' +
+    '<div><b>Rola:</b> ' + esc(rola() || "szeregowy") + '</div>' +
     '<div><b>Czas skanu:</b> ' + new Date().toLocaleString("pl-PL", PLF) + '</div>' +
     '</div>' +
     '<p class="mut" style="font-size:12px;margin:8px 0 16px;">Kadra otrzymała powiadomienie o Twoim skanie.</p>' +
@@ -1771,17 +1819,17 @@ binders.qr = () => {
     render();
   });
 
-  $("[data-print-qr]").forEach(b => b.onclick = () => {
+  $$("[data-print-qr]").forEach(b => b.onclick = () => {
     const qr = S.kodyQr?.find(q => q.id === b.dataset.printQr);
     if (qr) printQrCode(qr);
   });
 
-  $("[data-dl-qr]").forEach(b => b.onclick = () => {
+  $$("[data-dl-qr]").forEach(b => b.onclick = () => {
     const qr = S.kodyQr?.find(q => q.id === b.dataset.dlQr);
     if (qr) downloadQrPng(qr);
   });
 
-  $("[data-copy-qr]").forEach(b => b.onclick = async () => {
+  $$("[data-copy-qr]").forEach(b => b.onclick = async () => {
     const qr = S.kodyQr?.find(q => q.id === b.dataset.copyQr);
     if (qr) {
       const url = getQrPayload(qr.id);
@@ -1789,14 +1837,14 @@ binders.qr = () => {
     }
   });
 
-  $("[data-toggle-qr]").forEach(b => b.onclick = () => {
+  $$("[data-toggle-qr]").forEach(b => b.onclick = () => {
     const id = b.dataset.toggleQr;
     S.qrExpanded = S.qrExpanded || {};
     S.qrExpanded[id] = !S.qrExpanded[id];
     render();
   });
 
-  $("[data-del-qr]").forEach(b => b.onclick = async () => {
+  $$("[data-del-qr]").forEach(b => b.onclick = async () => {
     const qr = S.kodyQr?.find(q => q.id === b.dataset.delQr);
     if (!qr) return;
     if (!confirm('Czy na pewno chcesz usunąć kod QR „' + qr.nazwa + '”?')) return;
@@ -1807,7 +1855,7 @@ binders.qr = () => {
     }
   });
 
-  $("[data-del-scan]").forEach(b => b.onclick = async () => {
+  $$("[data-del-scan]").forEach(b => b.onclick = async () => {
     if (!confirm("Czy na pewno chcesz usunąć ten wpis skanu?")) return;
     try {
       await deleteDoc(doc(db, "skanyQr", b.dataset.delScan));
@@ -2590,10 +2638,17 @@ try {
   const initScanParam = new URLSearchParams(window.location.search).get("scan");
   if (initScanParam) {
     history.replaceState({}, document.title, window.location.pathname);
+    sessionStorage.setItem("pending_scan", initScanParam);
     if (auth.currentUser) {
-      setTimeout(() => executeScanById(initScanParam), 600);
+      setTimeout(() => {
+        const p = sessionStorage.getItem("pending_scan");
+        if (p) {
+          sessionStorage.removeItem("pending_scan");
+          S.pendingScanNotice = null;
+          executeScanById(p);
+        }
+      }, 500);
     } else {
-      sessionStorage.setItem("pending_scan", initScanParam);
       S.pendingScanNotice = "Zeskanowano kod QR! Zaloguj się na swoje konto, aby zarejestrować obecność.";
       S.tab = "login";
       render();

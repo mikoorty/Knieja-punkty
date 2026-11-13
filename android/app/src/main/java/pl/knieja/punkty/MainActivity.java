@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        s.setAllowFileAccess(true);
         s.setUserAgentString(s.getUserAgentString() + " KniejaApp/1");
         CookieManager.getInstance().setAcceptCookie(true);
         web.addJavascriptInterface(new Bridge(), "KniejaApp");
@@ -73,23 +75,25 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
-                boolean wantsVideo = false;
-                for (String r : request.getResources()) {
-                    if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) {
-                        wantsVideo = true;
-                        break;
+                runOnUiThread(() -> {
+                    boolean wantsVideo = false;
+                    for (String r : request.getResources()) {
+                        if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) {
+                            wantsVideo = true;
+                            break;
+                        }
                     }
-                }
-                if (wantsVideo) {
-                    if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                        request.grant(request.getResources());
+                    if (wantsVideo) {
+                        if (checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                            request.grant(request.getResources());
+                        } else {
+                            pendingPermissionRequest = request;
+                            requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQ_CAMERA_PERMISSION);
+                        }
                     } else {
-                        pendingPermissionRequest = request;
-                        requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQ_CAMERA_PERMISSION);
+                        request.grant(request.getResources());
                     }
-                } else {
-                    request.grant(request.getResources());
-                }
+                });
             }
 
             @Override
@@ -149,15 +153,24 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == REQ_CAMERA_PERMISSION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                if (pendingPermissionRequest != null) {
-                    pendingPermissionRequest.grant(pendingPermissionRequest.getResources());
-                    pendingPermissionRequest = null;
-                }
+                runOnUiThread(() -> {
+                    if (pendingPermissionRequest != null) {
+                        try {
+                            pendingPermissionRequest.grant(pendingPermissionRequest.getResources());
+                        } catch (Exception ignored) {}
+                        pendingPermissionRequest = null;
+                    }
+                    web.evaluateJavascript("window.onCameraPermissionGranted && window.onCameraPermissionGranted();", null);
+                });
             } else {
-                if (pendingPermissionRequest != null) {
-                    pendingPermissionRequest.deny();
-                    pendingPermissionRequest = null;
-                }
+                runOnUiThread(() -> {
+                    if (pendingPermissionRequest != null) {
+                        try {
+                            pendingPermissionRequest.deny();
+                        } catch (Exception ignored) {}
+                        pendingPermissionRequest = null;
+                    }
+                });
                 toast("Wymagane jest zezwolenie na aparat, aby skanować kody QR.");
             }
         } else {
@@ -210,6 +223,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void toast(String msg) {
             MainActivity.this.toast(msg);
+        }
+
+        @JavascriptInterface
+        public boolean hasCameraPermission() {
+            return checkSelfPermission(android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+        }
+
+        @JavascriptInterface
+        public void requestCameraPermission() {
+            if (checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQ_CAMERA_PERMISSION);
+            } else {
+                runOnUiThread(() -> {
+                    web.evaluateJavascript("window.onCameraPermissionGranted && window.onCameraPermissionGranted();", null);
+                });
+            }
         }
 
         @JavascriptInterface
