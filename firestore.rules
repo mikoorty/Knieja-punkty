@@ -14,12 +14,12 @@ service cloud.firestore {
     function aktywny(aid) { return request.time.toMillis() >= alarm(aid).startMs && request.time.toMillis() < alarm(aid).startMs + 86400000; }
     function zMojegoZastepu(uid) { return get(/databases/$(db)/documents/users/$(uid)).data.zastep == me().zastep; }
 
-    match /config/{d} { allow read: if true; allow write: if kadra(); }
+    match /config/{d} { allow read: if true; allow write: if kadra() || signed(); }
 
-    // Konta: tylko administrator tworzy, zmienia i usuwa
+    // Konta: administrator tworzy i zarządza; użytkownik może utworzyć swój profil przy rejestracji
     match /users/{uid} {
       allow read: if signed() && (request.auth.uid == uid || kadra() || (zastepowy() && resource.data.zastep == me().zastep));
-      allow create: if admin();
+      allow create: if admin() || (signed() && request.auth.uid == uid);
       // własnej funkcji i uprawnień administratora nie można sobie zmienić — robi to inny administrator
       allow update: if (admin() && (uid != request.auth.uid ||
           (request.resource.data.rola == resource.data.rola && request.resource.data.get('admin', false) == resource.data.get('admin', false))))
@@ -31,7 +31,7 @@ service cloud.firestore {
     }
     match /loginy/{login} {
       allow get: if true;
-      allow list, write: if admin();
+      allow list, write: if admin() || signed();
     }
     match /sekrety/{uid} {
       allow read: if admin();

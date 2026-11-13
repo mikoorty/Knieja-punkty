@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-094743";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-094743";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-105014";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-105014";
 
-const BUILD = "20261113-094743";
+const BUILD = "20261113-105014";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -185,13 +185,29 @@ const binders = {};
 
 // ---------- logowanie
 function vLogin() {
+  const bootstrapBox = S.showRegister ? `
+    <div class="card" style="border-color:var(--acc);margin-top:14px;background:var(--acc2);">
+      <h2>✨ Załóż pierwsze konto administratora (Kadra)</h2>
+      <p class="mut">Utwórz główne konto kadry z uprawnieniami administratora w Twoim nowym projekcie Firebase.</p>
+      <div class="row"><input id="reg_imie" placeholder="Imię i nazwisko (np. Mikołaj)" style="width:100%"></div>
+      <div class="row"><input id="reg_login" placeholder="Login (np. mikoorty lub admin)" autocomplete="username" autocapitalize="none" style="width:100%"></div>
+      <div class="row"><input id="reg_pw" type="password" placeholder="Hasło (min. 6 znaków)" autocomplete="new-password" style="width:100%"></div>
+      <div class="row"><input id="reg_pw2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" style="width:100%"></div>
+      <div class="row" style="margin-top:10px;"><button class="pri" id="reg_btn">Utwórz konto kadry</button><button id="reg_cancel">Anuluj</button></div>
+    </div>` : `
+    <div class="row" style="margin-top:14px;justify-content:center;">
+      <button id="reg_open" style="font-size:13px;width:100%;">✨ Nowy projekt? Załóż pierwsze konto administratora</button>
+    </div>`;
+
   return `<div class="card">${S.pendingScanNotice ? `<div style="background:var(--acc2);border:1px solid var(--acc);border-radius:8px;padding:10px;margin-bottom:12px;color:var(--ink);"><b>ℹ️ ${esc(S.pendingScanNotice)}</b></div>` : ""}<h2>Logowanie</h2>
   <div class="row"><input id="em" placeholder="Login" autocomplete="username" autocapitalize="none" spellcheck="false"></div>
   <div class="row"><input id="pw" type="password" placeholder="Hasło" autocomplete="current-password"></div>
   <div class="row"><button class="pri" id="li">Zaloguj</button></div>
-  <p class="mut">Konta zakłada administrator — od niego dostajesz login i hasło.</p></div>`;
+  <p class="mut">Konta zakłada administrator — od niego dostajesz login i hasło.</p>
+  ${bootstrapBox}
+  </div>`;
 }
-const DOMAIN = "@kniejapunkty.firebaseapp.com";
+const DOMAIN = "@" + (firebaseConfig.authDomain || "kniejapunkty.firebaseapp.com");
 const normLogin = l => String(l || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
   .replace(/ł/g, "l").replace(/\s+/g, ".").replace(/[^a-z0-9._-]/g, "");
 const loginOf = e => String(e || "").replace(DOMAIN, "");
@@ -200,6 +216,52 @@ const PL_ERR = { "auth/invalid-credential": "Zły login lub hasło.", "auth/inva
   "auth/email-already-in-use": "Takie konto już istnieje.", "auth/weak-password": "Hasło musi mieć co najmniej 6 znaków.",
   "auth/invalid-email": "Nieprawidłowy login.", "auth/too-many-requests": "Za dużo prób. Spróbuj za chwilę." };
 binders.login = () => {
+  $("#reg_open") && ($("#reg_open").onclick = () => { S.showRegister = true; render(); });
+  $("#reg_cancel") && ($("#reg_cancel").onclick = () => { S.showRegister = false; render(); });
+  $("#reg_btn") && ($("#reg_btn").onclick = async () => {
+    const imie = $("#reg_imie")?.value.trim();
+    const login = normLogin($("#reg_login")?.value);
+    const pw = $("#reg_pw")?.value;
+    const pw2 = $("#reg_pw2")?.value;
+    if (!imie) return alert("Wpisz imię i nazwisko");
+    if (!login) return alert("Wpisz login");
+    if (!pw || pw.length < 6) return alert("Hasło musi mieć co najmniej 6 znaków");
+    if (pw !== pw2) return alert("Hasła nie są takie same");
+
+    const btn = $("#reg_btn");
+    btn.disabled = true; btn.textContent = "Tworzę konto…"; S.busy = true;
+    try {
+      const email = login + DOMAIN;
+      const cred = await createUserWithEmailAndPassword(auth, email, pw);
+      const uid = cred.user.uid;
+      await setDoc(doc(db, "users", uid), {
+        email,
+        login,
+        imie,
+        rola: "kadra",
+        admin: true,
+        zastep: "brak",
+        utworzono: serverTimestamp()
+      });
+      await setDoc(doc(db, "loginy", login), { email, uid });
+      await setDoc(doc(db, "sekrety", uid), { haslo: pw });
+      try {
+        const cfgDoc = await getDoc(doc(db, "config", "main"));
+        if (!cfgDoc.exists()) {
+          await setDoc(doc(db, "config", "main"), DEFAULT_CONFIG);
+        }
+      } catch (e) {}
+      alert(`Konto administratora „${login}” zostało pomyślnie utworzone! Jesteś teraz zalogowany jako Kadra.`);
+      S.showRegister = false;
+      S.tab = "wyniki";
+      render();
+    } catch (e) {
+      alert("Błąd podczas rejestracji: " + (PL_ERR[e.code] || e.message || e));
+    }
+    S.busy = false;
+    render();
+  });
+
   $("#li").onclick = async () => {
     const login = normLogin($("#em").value); if (!login) return alert("Wpisz login");
     try {
