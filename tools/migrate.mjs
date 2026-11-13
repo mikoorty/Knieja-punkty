@@ -203,7 +203,7 @@ export async function runMigration(adminLogin, adminPassword) {
     }
   }
 
-  // Kopiowanie konfiguracji
+  // Kopiowanie konfiguracji i danych historycznych
   if (adminToken) {
     try {
       const resCfg = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_CONFIG.projectId}/databases/(default)/documents/config/main`);
@@ -215,6 +215,28 @@ export async function runMigration(adminLogin, adminPassword) {
       }
     } catch (e) {
       console.warn(`! Błąd kopiowania config:`, e.message);
+    }
+
+    const dataCols = ['zbiorkiZastepu', 'alarmy', 'meldunki', 'sprawnosci', 'akcje', 'korekty'];
+    console.log(`\n5. Kopiowanie danych (zbiórki, alarmy, meldunki)...`);
+    for (const col of dataCols) {
+      try {
+        const resCol = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_CONFIG.projectId}/databases/(default)/documents/${col}?pageSize=300`);
+        if (!resCol.ok) continue;
+        const colData = await resCol.json();
+        const docs = colData.documents || [];
+        if (docs.length > 0) {
+          console.log(`  Pobieram ${docs.length} dokumentów z ${col}...`);
+          for (const d of docs) {
+            const docId = d.name.split('/').pop();
+            const decoded = decodeDoc(d);
+            await setDocument(NEW_CONFIG.projectId, adminToken, `${col}/${docId}`, decoded);
+          }
+          console.log(`  ✓ Skopiowano ${docs.length} dokumentów do ${col}.`);
+        }
+      } catch (err) {
+        console.warn(`! Błąd przy kopiowaniu ${col}:`, err.message);
+      }
     }
   }
 

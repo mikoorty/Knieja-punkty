@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-105508";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-105508";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-110831";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-110831";
 
-const BUILD = "20261113-105508";
+const BUILD = "20261113-110831";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -363,6 +363,30 @@ binders.login = () => {
         }
       }
 
+      // Kopiowanie config/main oraz zbiórek, alarmów i meldunków
+      if (adminToken) {
+        if (status) status.textContent += '  Pobieram zbiórki, alarmy i meldunki…\n';
+        const histCols = ['zbiorkiZastepu', 'alarmy', 'meldunki', 'sprawnosci', 'akcje', 'korekty'];
+        for (const col of histCols) {
+          try {
+            const hRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/${col}?pageSize=300`);
+            if (!hRes.ok) continue;
+            const hData = await hRes.json();
+            const docs = hData.documents || [];
+            for (const d of docs) {
+              const docId = d.name.split('/').pop();
+              if (d.fields) {
+                await fetch(`https://firestore.googleapis.com/v1/projects/${NEW_PROJECT}/databases/(default)/documents/${col}/${docId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+                  body: JSON.stringify({ fields: d.fields })
+                });
+              }
+            }
+            if (docs.length && status) status.textContent += `  ✓ Skopiowano ${docs.length} z ${col}\n`;
+          } catch (e) {}
+        }
+      }
       // Kopiowanie config/main
       try {
         const cfgRes = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/config/main`);
@@ -449,6 +473,62 @@ binders.login = () => {
   };
 };
 
+async function syncOldHistory(statusCb = () => {}) {
+  const OLD_PROJECT = "kniejapunkty";
+  const decodeDocData = d => {
+    const out = {};
+    for (const [k, v] of Object.entries(d.fields || {})) {
+      if (v.stringValue !== undefined) out[k] = v.stringValue;
+      else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
+      else if (v.integerValue !== undefined) out[k] = parseInt(v.integerValue, 10);
+      else if (v.doubleValue !== undefined) out[k] = v.doubleValue;
+      else if (v.timestampValue !== undefined) out[k] = new Date(v.timestampValue);
+      else if (v.mapValue !== undefined) {
+        out[k] = {};
+        for (const [mk, mv] of Object.entries(v.mapValue.fields || {})) {
+          out[k][mk] = mv.stringValue ?? (mv.integerValue ? parseInt(mv.integerValue, 10) : (mv.booleanValue ?? mv));
+        }
+      } else if (v.arrayValue !== undefined) {
+        out[k] = (v.arrayValue.values || []).map(item => item.stringValue ?? (item.integerValue ? parseInt(item.integerValue, 10) : item));
+      }
+    }
+    return out;
+  };
+
+  const cols = ["zbiorkiZastepu", "alarmy", "meldunki", "sprawnosci", "akcje", "korekty"];
+  let totalCopied = 0;
+  for (const c of cols) {
+    statusCb(`Pobieram ${c}…`);
+    try {
+      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/${c}?pageSize=300`);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const docs = json.documents || [];
+      for (const d of docs) {
+        const id = d.name.split("/").pop();
+        const data = decodeDocData(d);
+        await setDoc(doc(db, c, id), data);
+        totalCopied++;
+      }
+    } catch (e) {
+      console.warn(`Błąd przy ${c}:`, e);
+    }
+  }
+
+  try {
+    const resCfg = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/config/main`);
+    if (resCfg.ok) {
+      const jsonCfg = await resCfg.json();
+      if (jsonCfg.fields) {
+        await setDoc(doc(db, "config", "main"), decodeDocData(jsonCfg));
+      }
+    }
+  } catch (e) {}
+
+  statusCb(`Zaimportowano ${totalCopied} wpisów!`);
+  return totalCopied;
+}
+
 // ---------- WYNIKI
 function vWyniki() {
   if (S.view?.kind === "hist") return vHist(null);
@@ -463,7 +543,13 @@ function vWyniki() {
     <div class="pts">${frac(t[z].suma)}</div></div>`; }).join("");
   const det = ZASTEPY.map(z => `<details><summary><b>${z}</b> — historia streaka</summary><table><tr><th>Tydzień</th><th class="n">n</th><th class="n">Pkt</th><th></th></tr>
     ${t[z].log.map(l => `<tr><td>${plDay(l.tydzien)}</td><td class="n">${l.n}</td><td class="n">${frac(l.pkt)}</td><td class="mut">${l.info || ""}</td></tr>`).join("") || `<tr><td colspan=4 class="mut">brak</td></tr>`}</table></details>`).join("");
-  return `<div class="card"><h2>Ranking</h2>${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
+  const emptyHistoryBox = (isKadra() && (S.zbiorki || []).length === 0) ? `
+    <div class="card" style="border:1px solid var(--acc);background:var(--acc2);margin-bottom:12px;">
+      <b>📥 Pusta baza zbiórek i alarmów</b>
+      <p class="mut" style="margin:4px 0 8px 0;">W starej bazie znajduje się 18 zgłoszonych zbiórek i 6 alarmów. Kliknij poniżej, aby jednym kliknięciem przenieść je do Twojej nowej bazy.</p>
+      <div class="row"><button class="pri" id="btn_import_old_data">📥 Pobierz zbiórki i alarmy ze starej bazy</button><span id="import_old_data_status" style="font-size:13px;align-self:center;"></span></div>
+    </div>` : "";
+  return `${emptyHistoryBox}<div class="card"><h2>Ranking</h2>`;${quarterPicker()}${isKadra() || odrzBtn() ? `<div class="row">${isKadra() ? `<button id="hist">📜 Historia punktów</button><button id="arch">🗄 Archiwum kwartałów</button>` : ""}${odrzBtn()}</div>` : ""}<div class="rank">${items}</div></div><div class="card"><h2>Szczegóły streaków</h2>${det}</div>${chartCard()}`;
 }
 
 binders.wyniki = () => {
@@ -2437,7 +2523,11 @@ function vUstawienia() {
      <input type="date" data-k="${i}.start" value="${q.start}"><input type="date" data-k="${i}.end" value="${q.end}"><button class="del" data-kdel="${i}">✖</button></div>`).join("")}</div>
    <button id="kadd">+ Kwartał</button>
    <div class="row" style="margin-top:14px"><button class="pri" id="csave">Zapisz ustawienia</button></div>
-   <p class="mut">Zmiana ustawień przelicza wszystkie wyniki od nowa. Streak zeruje się na początku każdego kwartału.</p></div>`;
+   <p class="mut">Zmiana ustawień przelicza wszystkie wyniki od nowa. Streak zeruje się na początku każdego kwartału.</p></div>
+   <div class="card"><h2>🔄 Synchronizacja danych ze starej bazy</h2>
+   <p class="mut">Jeśli brakuje starych zbiórek (18), alarmów (6) lub meldunków, możesz je w każdej chwili pobrać ze starej bazy (kniejapunkty).</p>
+   <div class="row"><button class="pri" id="btn_sync_old">📥 Pobierz zbiórki i alarmy ze starej bazy</button><span id="sync_old_status" style="font-size:13px;align-self:center;"></span></div>
+   </div>`;
 }
 const kontaZ = z => S.users.filter(u => u.zastep === z && ["szeregowy", "zastepowy"].includes(u.rola)).length;
 const streakExample = c => "Np.: " + [1, 2, 3, 4, 5].map(n => `${n}. zbiórka ${frac(zbiorkaPts(c, n))}`).join(" · ") + " pkt";
