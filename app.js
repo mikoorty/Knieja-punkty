@@ -5,10 +5,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-133500";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-133500";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-133800";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-133800";
 
-const BUILD = "20261113-133500";
+const BUILD = "20261113-133800";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -1357,7 +1357,7 @@ function printQrCode(qr) {
     '<div class="top">8 UDH „Knieja” · Punktacja</div>' +
     '<h1>' + esc(qr.nazwa) + '</h1>' +
     (qr.opis ? '<div class="desc">' + esc(qr.opis) + '</div>' : '') +
-    (qr.redirectUrl ? '<div style="font-size:13px;color:#2f5d3a;margin-bottom:12px;word-break:break-all;">${mdi("flag", 14)} Zadanie: ' + esc(qr.redirectUrl) + '</div>' : '') +
+    (qr.redirectUrl ? '<div style="font-size:13px;color:#2f5d3a;margin-bottom:12px;word-break:break-all;">' + mdi("flag", 14) + ' Zadanie: ' + esc(qr.redirectUrl) + '</div>' : '') +
     '<div class="qr-svg">' + svg + '</div>' +
     '<div class="instruct">' +
     'Zeskanuj ten kod w aplikacji <b>Punktacja zastępów</b>' +
@@ -1381,7 +1381,7 @@ function printQrCode(qr) {
       m.innerHTML = '<div class="box" style="max-width:500px;text-align:center;">' +
         '<div style="max-height:70vh;overflow-y:auto;padding:10px;">' + html.replace(/<script>[\s\S]*?<\/script>/, '') + '</div>' +
         '<div class="row" style="justify-content:center;margin-top:10px;">' +
-        '<button class="pri" id="btn_modal_print">${mdi("printer", 15)} Drukuj teraz</button>' +
+        '<button class="pri" id="btn_modal_print">' + mdi("printer", 15) + ' Drukuj teraz</button>' +
         '<button id="btn_modal_close">Zamknij</button>' +
         '</div></div>';
       $("#btn_modal_print").onclick = () => window.print();
@@ -1635,7 +1635,7 @@ function showScanSuccessModal(qr) {
         '<div style="margin:8px auto;display:flex;justify-content:center;color:var(--pri);">' + mdi("flag", 32) + '</div>' +
         '<div style="font-size:15px;font-weight:800;color:var(--ink);margin-bottom:4px;">Do tego kodu przypisano zadanie!</div>' +
         '<div class="mut" style="font-size:12px;margin-bottom:10px;">Obecność została zarejestrowana. Kliknij poniższy przycisk, aby przejść do treści zadania:</div>' +
-        '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="pri big" id="btn_modal_open_task" style="display:inline-block;width:100%;text-decoration:none;padding:12px 16px;font-size:16px;font-weight:800;border-radius:8px;box-sizing:border-box;">${mdi("open-in-new", 16)} Przejdź do zadania</a>' +
+        '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="pri big" id="btn_modal_open_task" style="display:inline-block;width:100%;text-decoration:none;padding:12px 16px;font-size:16px;font-weight:800;border-radius:8px;box-sizing:border-box;">' + mdi("open-in-new", 16) + ' Przejdź do zadania</a>' +
       '</div>'
     ) : '') +
     '<p class="mut" style="font-size:12px;margin:8px 0 16px;">Kadra otrzymała powiadomienie o Twoim skanie.</p>' +
@@ -1660,7 +1660,7 @@ function showScanSuccessModal(qr) {
 
 function vQr() {
   if (!S.user) {
-    return '<div class="card"><h2>${mdi("qrcode-scan", 20)} Skaner kodów QR</h2>' +
+    return '<div class="card"><h2>' + mdi("qrcode-scan", 20) + ' Skaner kodów QR</h2>' +
       '<p>Aby zeskanować kod QR i zarejestrować obecność lub wykonanie zadania, musisz być zalogowany.</p>' +
       '<div class="row"><button class="pri" id="qr_go_login">Przejdź do logowania</button></div></div>';
   }
@@ -1686,7 +1686,7 @@ function vQr() {
         3. Kliknij <b>Opublikuj (Publish)</b>.</p>
       </div>` : "";
 
-    const createCard = '<div class="card"><h2>${mdi("plus", 20)} Wygeneruj nowy kod QR</h2>' +
+    const createCard = '<div class="card"><h2>' + mdi("plus", 20) + ' Wygeneruj nowy kod QR</h2>' +
       '<div class="row"><input id="qr_new_nazwa" placeholder="Nazwa / etykieta kodu (np. Punkt 1 — Mostek, Zbiórka harcówka)" style="flex:1;min-width:220px"></div>' +
       '<div class="row"><input id="qr_new_opis" placeholder="Krótki opis lub instrukcja dla harcerzy (opcjonalnie)" style="flex:1;min-width:220px"></div>' +
       '<div class="row"><input id="qr_new_redirect" type="url" placeholder="Link do zadania / przekierowanie (opcjonalnie, np. https://forms.gle/...)" style="flex:1;min-width:220px"></div>' +
@@ -1694,7 +1694,7 @@ function vQr() {
       '<div class="row"><button class="pri" id="qr_create_btn">Wygeneruj kod QR</button></div>' +
       '<p class="mut">Wygenerowany kod zostanie oznaczony Twoją etykietą i będzie gotowy do wydrukowania lub pobrania jako obraz. Każde zeskanowanie kodu przez harcerza natychmiast wyśle Ci powiadomienie.</p></div>';
 
-    const notifCard = '<div class="card"><h2>${mdi("bell", 20)} Powiadomienia o skanach</h2>' +
+    const notifCard = '<div class="card"><h2>' + mdi("bell", 20) + ' Powiadomienia o skanach</h2>' +
       '<div class="row" style="gap:14px;align-items:center;">' +
       '<label class="sw"><input type="checkbox" id="qr_audio_sw" ' + (S.scanAudioOn !== false ? "checked" : "") + '><span></span> Dźwięk powiadomienia</label>' +
       (typeof Notification !== "undefined" ? (notifGranted ? '<span class="badge ok">' + mdi("check", 13) + ' Powiadomienia włączone</span>' : '<button id="btn_req_notif">' + mdi("bell", 15) + ' Włącz powiadomienia w przeglądarce</button>') : '') +
@@ -1710,8 +1710,8 @@ function vQr() {
       '</div>' +
       '<div class="row" style="justify-content:center;margin-top:8px;">' +
         '<button class="pri" id="btn_cam_toggle">' + (qrCamStream ? "⏹ Zatrzymaj aparat" : "▶ Włącz aparat") + '</button>' +
-        '<button id="btn_cam_flip">${mdi("camera-flip", 15)} Zmień aparat</button>' +
-        '<button id="btn_pick_photo">${mdi("image", 15)} Ze zdjęcia / galerii</button>' +
+        '<button id="btn_cam_flip">' + mdi("camera-flip", 15) + ' Zmień aparat</button>' +
+        '<button id="btn_pick_photo">' + mdi("image", 15) + ' Ze zdjęcia / galerii</button>' +
         '<input type="file" id="scan_file_inp" accept="image/*" capture="environment" hidden>' +
       '</div>' : '') + '</div>';
 
@@ -1727,16 +1727,16 @@ function vQr() {
                 '<span class="badge ok">' + qrScans.length + ' ' + plural(qrScans.length, "skan", "skany", "skanów") + '</span>' +
               '</div>' +
               (qr.opis ? '<div class="mut" style="font-size:13px;margin:4px 0 8px;">' + esc(qr.opis) + '</div>' : '') +
-              (qr.redirectUrl ? '<div style="margin:4px 0 8px;font-size:12px;word-break:break-all;"><span class="badge ok">${mdi("flag", 14)} Zadanie</span> <a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600;">' + esc(qr.redirectUrl) + '</a></div>' : '') +
+              (qr.redirectUrl ? '<div style="margin:4px 0 8px;font-size:12px;word-break:break-all;"><span class="badge ok">' + mdi("flag", 14) + ' Zadanie</span> <a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" style="color:var(--acc);font-weight:600;">' + esc(qr.redirectUrl) + '</a></div>' : '') +
               '<div class="qr-preview">' + renderQrSvg(getQrPayload(qr.id), 4, 2) + '</div>' +
               '<div class="mut" style="font-size:11px;margin-top:6px;">Utworzył(a): ' + esc(qr.autorImie || "kadra") + ' · ' + plTs(qr.utworzono) + '</div>' +
             '</div>' +
             '<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px;display:grid;gap:6px;">' +
               '<div class="row">' +
-                '<button class="pri" data-print-qr="' + esc(qr.id) + '">${mdi("printer", 15)} Drukuj</button>' +
-                '<button data-dl-qr="' + esc(qr.id) + '">${mdi("download", 15)} Pobierz PNG</button>' +
-                '<button data-copy-qr="' + esc(qr.id) + '">${mdi("content-copy", 15)} Link</button>' +
-                (qr.redirectUrl ? '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="button" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;font-size:13px;">${mdi("open-in-new", 14)} Zadanie</a>' : '') +
+                '<button class="pri" data-print-qr="' + esc(qr.id) + '">' + mdi("printer", 15) + ' Drukuj</button>' +
+                '<button data-dl-qr="' + esc(qr.id) + '">' + mdi("download", 15) + ' Pobierz PNG</button>' +
+                '<button data-copy-qr="' + esc(qr.id) + '">' + mdi("content-copy", 15) + ' Link</button>' +
+                (qr.redirectUrl ? '<a href="' + esc(qr.redirectUrl) + '" target="_blank" rel="noopener" class="button" style="text-decoration:none;display:inline-flex;align-items:center;padding:5px 10px;font-size:13px;">' + mdi("open-in-new", 14) + ' Zadanie</a>' : '') +
                 '<button data-toggle-qr="' + esc(qr.id) + '">' + (isExp ? (mdi("chevron-up", 15) + " Ukryj skany") : (mdi("chevron-down", 15) + " Skany (" + qrScans.length + ")")) + '</button>' +
                 '<button class="del" data-del-qr="' + esc(qr.id) + '">Usuń</button>' +
               '</div>' +
@@ -1770,7 +1770,7 @@ function vQr() {
           '<td>' + esc(s.imie) + '</td>' +
           '<td>' + esc(s.zastep) + '</td>' +
           '<td class="mut">' + esc(s.rola) + '</td>' +
-          '<td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" class="mut" style="font-size:11px;color:var(--acc);">${mdi("flag", 14)} Zadanie: ' + esc(s.redirectUrl.length > 30 ? s.redirectUrl.slice(0, 28) + '…' : s.redirectUrl) + '</a>' : '') + '</td>' +
+          '<td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" class="mut" style="font-size:11px;color:var(--acc);">' + mdi("flag", 14) + ' Zadanie: ' + esc(s.redirectUrl.length > 30 ? s.redirectUrl.slice(0, 28) + '…' : s.redirectUrl) + '</a>' : '') + '</td>' +
           '<td class="act"><button class="del" data-del-scan="' + s.id + '" title="Usuń wpis skanu">Usuń</button></td>' +
         '</tr>').join("") +
       '</table></div>';
@@ -1778,14 +1778,14 @@ function vQr() {
     const logCard = '<div class="card">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">' +
         '<h2 style="margin:0;display:flex;align-items:center;gap:8px;">' + mdi("file-document", 20) + ' Rejestr zeskanowanych kodów <span class="badge ok">' + filteredScans.length + '</span></h2>' +
-        '<button id="btn_print_scans_rep">${mdi("printer", 15)} Drukuj raport skanów</button>' +
+        '<button id="btn_print_scans_rep">' + mdi("printer", 15) + ' Drukuj raport skanów</button>' +
       '</div>' +
       '<div class="row" style="margin:10px 0 12px;gap:8px;align-items:center;">' +
         '<span class="mut">Filtruj kod:</span>' +
         '<select id="filter_qr_code"><option value="">Wszystkie kody</option>' + qrOptions + '</select>' +
         '<span class="mut">Zastęp:</span>' +
         '<select id="filter_qr_zastep"><option value="">Wszystkie zastępy</option>' + zastepOptions + '</select>' +
-        ((S.qrFilterCode || S.qrFilterZastep) ? '<button id="btn_clear_qr_filters">${mdi("close", 14)} Wyczyść filtry</button>' : '') +
+        ((S.qrFilterCode || S.qrFilterZastep) ? '<button id="btn_clear_qr_filters">' + mdi("close", 14) + ' Wyczyść filtry</button>' : '') +
       '</div>' +
       scansTable +
     '</div>';
@@ -1794,7 +1794,7 @@ function vQr() {
   }
 
   const myScans = S.mySkanyQr || [];
-  return '<div class="card"><h2>${mdi("qrcode-scan", 20)} Skaner kodów QR</h2>' +
+  return '<div class="card"><h2>' + mdi("qrcode-scan", 20) + ' Skaner kodów QR</h2>' +
     '<div class="scan-box">' +
       '<video id="scan_video" class="scan-video" playsinline muted autoplay></video>' +
       '<div class="scan-reticle"><div class="scan-laser"></div></div>' +
@@ -1803,14 +1803,14 @@ function vQr() {
       '<button class="pri big" id="btn_cam_toggle" style="flex:1;max-width:300px;">' + (qrCamStream ? "⏹ Zatrzymaj aparat" : "▶ Uruchom aparat i skanuj") + '</button>' +
     '</div>' +
     '<div class="row" style="justify-content:center;gap:8px;">' +
-      '<button id="btn_cam_flip">${mdi("camera-flip", 15)} Zmień aparat</button>' +
-      '<button id="btn_pick_photo">${mdi("image", 15)} Zrób zdjęcie / Wybierz plik</button>' +
+      '<button id="btn_cam_flip">' + mdi("camera-flip", 15) + ' Zmień aparat</button>' +
+      '<button id="btn_pick_photo">' + mdi("image", 15) + ' Zrób zdjęcie / Wybierz plik</button>' +
       '<input type="file" id="scan_file_inp" accept="image/*" capture="environment" hidden>' +
     '</div>' +
     '<p class="mut" style="text-align:center;margin-top:12px;">Skieruj aparat na wydrukowany kod QR przygotowany przez kadrę.<br>Po wykryciu kodu Twój skan zostanie natychmiast zarejestrowany, a kadra otrzyma powiadomienie.</p>' +
   '</div>' +
   '<div class="card">' +
-    '<h2>${mdi("qrcode-scan", 20)} Twoje zeskanowane kody <span class="badge ok">' + myScans.length + '</span></h2>' +
+    '<h2>' + mdi("qrcode-scan", 20) + ' Twoje zeskanowane kody <span class="badge ok">' + myScans.length + '</span></h2>' +
     (myScans.length === 0 ? '<p class="mut">Nie masz jeszcze żadnych zeskanowanych kodów.</p>' :
       '<div class="scroll"><table><tr><th>Data i czas</th><th>Kod QR</th><th>Status</th></tr>' +
       myScans.map(s => '<tr><td><b>' + plTs(s.czas) + '</b></td><td><b>' + esc(s.qrNazwa) + '</b>' + (s.redirectUrl ? '<br><a href="' + esc(s.redirectUrl) + '" target="_blank" rel="noopener" style="font-size:12px;color:var(--acc);font-weight:600;">' + mdi("open-in-new", 14) + ' Otwórz zadanie</a>' : '') + '</td><td><span class="badge ok">' + mdi("check", 13) + ' Zarejestrowano</span></td></tr>').join("") +
