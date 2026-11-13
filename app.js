@@ -4,10 +4,10 @@ import { getAuth, initializeAuth, inMemoryPersistence, onAuthStateChanged, signI
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, onSnapshot, setDoc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261113-111213";
-import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-111213";
+import { firebaseConfig } from "./firebase-config.js?v=20261113-111718";
+import { ZASTEPY, DEFAULT_CONFIG, quarterTotals, akcjaPoints, alarmPoints, alarmProgiMin, progIndex, meldMinute, frac, streakPoints, monday, parseD, fmtD, streakInc, zbiorkaPts, sprawPts } from "./scoring.js?v=20261113-111718";
 
-const BUILD = "20261113-111213";
+const BUILD = "20261113-111718";
 const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 
 // ---------- wersja aplikacji: sprawdzanie, czy na serwerze jest nowsza (telefony długo trzymają stare pliki)
@@ -497,8 +497,10 @@ async function syncOldHistory(statusCb = () => {}) {
 
   const cols = ["zbiorkiZastepu", "alarmy", "meldunki", "sprawnosci", "akcje", "korekty"];
   let totalCopied = 0;
+  const errors = [];
+
   for (const c of cols) {
-    statusCb(`Pobieram ${c}…`);
+    statusCb(`Pobieram ${c} ze starej bazy…`);
     try {
       const res = await fetch(`https://firestore.googleapis.com/v1/projects/${OLD_PROJECT}/databases/(default)/documents/${c}?pageSize=300`);
       if (!res.ok) continue;
@@ -507,11 +509,17 @@ async function syncOldHistory(statusCb = () => {}) {
       for (const d of docs) {
         const id = d.name.split("/").pop();
         const data = decodeDocData(d);
-        await setDoc(doc(db, c, id), data);
-        totalCopied++;
+        try {
+          await setDoc(doc(db, c, id), data);
+          totalCopied++;
+        } catch (setErr) {
+          console.error(`Błąd zapisu w ${c}/${id}:`, setErr);
+          errors.push(`${c}/${id}: ${setErr.message || setErr.code || setErr}`);
+        }
       }
     } catch (e) {
-      console.warn(`Błąd przy ${c}:`, e);
+      console.warn(`Błąd przy pobieraniu ${c}:`, e);
+      errors.push(`Pobieranie ${c}: ${e.message || e}`);
     }
   }
 
@@ -523,7 +531,13 @@ async function syncOldHistory(statusCb = () => {}) {
         await setDoc(doc(db, "config", "main"), decodeDocData(jsonCfg));
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Błąd przy zapisie config:", e);
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Zaimportowano ${totalCopied} wpisów, ale wystąpiły błędy uprawnień:\n` + errors.slice(0, 3).join("\n"));
+  }
 
   statusCb(`Zaimportowano ${totalCopied} wpisów!`);
   return totalCopied;
@@ -558,6 +572,24 @@ binders.wyniki = () => {
   if (S.view?.kind === "odrz") return bindOdrz();
   bindHistBtn(); bindOdrzBtn(); bindChart();
   $("#arch") && ($("#arch").onclick = () => { S.view = { kind: "arch" }; render(); });
+
+  const btn = $("#btn_import_old_data");
+  if (btn) {
+    btn.onclick = async () => {
+      const st = $("#import_old_data_status");
+      btn.disabled = true;
+      try {
+        if (st) st.textContent = "Rozpoczynam pobieranie danych ze starej bazy…";
+        const n = await syncOldHistory(txt => { if (st) st.textContent = txt; });
+        alert(`Pomyślnie zaimportowano ${n} wpisów (w tym 18 zbiórek i 6 alarmów)! Punkty zostały przeliczone.`);
+        render();
+      } catch (e) {
+        alert("Wynik importu: " + (e.message || e));
+        if (st) st.textContent = "❌ " + (e.message || e);
+        btn.disabled = false;
+      }
+    };
+  }
 };
 
 // ---------- ZBIÓRKI ZASTĘPU
@@ -2555,6 +2587,24 @@ binders.ustawienia = () => {
     read(); c.step = c.base ? c.przyrost / c.base : 0;
     setDoc(doc(db, "config", "main"), c).then(() => alert("Zapisano liczebność zastępów.")).catch(err);
   };
+
+  const syncBtn = $("#btn_sync_old");
+  if (syncBtn) {
+    syncBtn.onclick = async () => {
+      const st = $("#sync_old_status");
+      syncBtn.disabled = true;
+      try {
+        if (st) st.textContent = "Rozpoczynam pobieranie…";
+        const n = await syncOldHistory(txt => { if (st) st.textContent = txt; });
+        alert(`Pomyślnie zaimportowano ${n} wpisów! Punkty zostały przeliczone.`);
+        render();
+      } catch (e) {
+        alert("Błąd: " + (e.message || e));
+        if (st) st.textContent = "❌ " + (e.message || e);
+        syncBtn.disabled = false;
+      }
+    };
+  }
 };
 
 // ---------- UŻYTKOWNICY (tylko administrator)
